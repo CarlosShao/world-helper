@@ -55,7 +55,7 @@
             <span v-else class="hidden-text">****</span>
           </template>
         </el-table-column>
-        <el-table-column label="词性" width="100" align="center">
+        <el-table-column label="词性" width="100" align="left">
           <template #default="{ row }">
             <el-tag size="small" type="info">{{ row.part_of_speech }}</el-tag>
           </template>
@@ -83,7 +83,7 @@
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :total="total"
-          :page-sizes="[20, 50, 100]"
+          :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="loadWords"
           @current-change="loadWords"
@@ -159,7 +159,7 @@ const searchText = ref('')
 const words = ref<Word[]>([])
 const total = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(10)
 const importing = ref(false)
 const selectedFile = ref<File | null>(null)
 const uploadDialogVisible = ref(false)
