@@ -12,7 +12,12 @@
             <el-icon><User /></el-icon>
             {{ username }}
           </span>
-          <el-button type="info" size="small" @click="handleLogout">
+          <el-button 
+            type="danger" 
+            size="small" 
+            class="logout-btn"
+            @click="handleLogout"
+          >
             <el-icon><SwitchButton /></el-icon>
             退出
           </el-button>
@@ -101,6 +106,22 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.logout-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border-radius: 20px;
+  padding: 6px 14px;
+  transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+  color: #fff;
 }
 
 .el-menu {
