@@ -42,6 +42,9 @@
             <el-button @click="toggleAllEnglish">
               {{ allEnglishHidden ? '显示全部英文' : '隐藏全部英文' }}
             </el-button>
+            <el-button type="success" @click="goToPractice">
+              随手拼
+            </el-button>
           </div>
         </div>
       </template>
@@ -93,7 +96,10 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 import { wordApi, type Word } from '../api'
+
+const router = useRouter()
 
 const searchText = ref('')
 const words = ref<Word[]>([])
@@ -185,6 +191,10 @@ const toggleAllEnglish = () => {
   } else {
     hiddenEnglish.value.clear()
   }
+}
+
+const goToPractice = () => {
+  router.push('/practice')
 }
 
 onMounted(() => {
