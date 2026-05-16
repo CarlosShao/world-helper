@@ -2,54 +2,91 @@
   <div class="practice">
     <el-card v-if="!currentWord" class="start-card">
       <div class="start-content">
+        <div class="icon-wrapper">
+          <el-icon class="practice-icon"><EditPen /></el-icon>
+        </div>
         <h2>随手拼练习</h2>
-        <p>根据中文提示拼写英文单词</p>
-        <el-button type="primary" size="large" @click="startPractice">开始练习</el-button>
+        <p>根据中文提示拼写英文单词，提升记忆效果</p>
+        <el-button type="primary" size="large" @click="startPractice" class="start-btn">
+          <el-icon style="margin-right: 8px;"><CaretRight /></el-icon>
+          开始练习
+        </el-button>
       </div>
     </el-card>
 
     <el-card v-else class="practice-card">
-      <div class="progress">
-        <span>进度: {{ currentIndex + 1 }} / {{ words.length }}</span>
-        <el-button @click="saveProgress">保存进度</el-button>
+      <div class="progress-bar">
+        <div class="progress-info">
+          <span class="progress-text">进度</span>
+          <span class="progress-count">{{ currentIndex + 1 }} / {{ words.length }}</span>
+        </div>
+        <el-progress 
+          :percentage="Math.round((currentIndex / words.length) * 100)" 
+          :show-text="false"
+          :stroke-width="8"
+          class="progress-line"
+        />
+        <el-button @click="saveProgress" size="small" text>
+          <el-icon><FolderChecked /></el-icon>
+          保存进度
+        </el-button>
       </div>
 
       <div class="word-display">
+        <div class="word-label">中文释义</div>
         <h3 class="chinese">{{ currentWord.chinese }}</h3>
-        <p class="part-of-speech">{{ currentWord.part_of_speech }}</p>
+        <el-tag size="small" type="info" class="pos-tag">{{ currentWord.part_of_speech }}</el-tag>
       </div>
 
-      <el-form @submit.prevent="checkAnswer">
+      <el-form @submit.prevent="checkAnswer" class="answer-form">
         <el-form-item>
           <el-input
             v-model="userAnswer"
-            placeholder="请输入英文单词"
+            placeholder="请输入英文单词..."
             size="large"
             ref="inputRef"
             @keyup.enter="checkAnswer"
-          />
+            class="answer-input"
+          >
+            <template #prefix>
+              <el-icon><Edit /></el-icon>
+            </template>
+          </el-input>
         </el-form-item>
-        <el-form-item>
+        <el-form-item class="btn-group">
           <el-button type="primary" size="large" @click="checkAnswer" :loading="checking">
+            <el-icon style="margin-right: 6px;"><Check /></el-icon>
             提交
           </el-button>
-          <el-button size="large" @click="showAnswer">显示答案</el-button>
-          <el-button size="large" @click="skipWord">跳过</el-button>
+          <el-button size="large" @click="showAnswer">
+            <el-icon><View /></el-icon>
+            显示答案
+          </el-button>
+          <el-button size="large" @click="skipWord">
+            <el-icon><Right /></el-icon>
+            跳过
+          </el-button>
         </el-form-item>
       </el-form>
 
-      <div v-if="showResult" class="result" :class="{ correct: isCorrect, wrong: !isCorrect }">
-        <el-icon v-if="isCorrect"><SuccessFilled /></el-icon>
-        <el-icon v-else><WarningFilled /></el-icon>
-        <span>{{ isCorrect ? '正确！' : '错误！' }}</span>
-        <p v-if="!isCorrect">正确答案: {{ currentWord.english }}</p>
-        <el-button v-if="!isCorrect" type="primary" @click="tryAgain" style="margin-top: 10px;">
-          再试一次
-        </el-button>
-        <el-button v-else type="primary" @click="nextWord" style="margin-top: 10px;">
-          下一个
-        </el-button>
-      </div>
+      <transition name="fade">
+        <div v-if="showResult" class="result" :class="{ correct: isCorrect, wrong: !isCorrect }">
+          <div class="result-icon">
+            <el-icon v-if="isCorrect" :size="48"><CircleCheckFilled /></el-icon>
+            <el-icon v-else :size="48"><CircleCloseFilled /></el-icon>
+          </div>
+          <span class="result-text">{{ isCorrect ? '回答正确！' : '回答错误' }}</span>
+          <p v-if="!isCorrect" class="correct-answer">正确答案: <strong>{{ currentWord.english }}</strong></p>
+          <el-button v-if="!isCorrect" type="primary" @click="tryAgain" class="result-btn">
+            <el-icon style="margin-right: 6px;"><RefreshRight /></el-icon>
+            再试一次
+          </el-button>
+          <el-button v-else type="success" @click="nextWord" class="result-btn">
+            <el-icon style="margin-right: 6px;"><Right /></el-icon>
+            下一个
+          </el-button>
+        </div>
+      </transition>
     </el-card>
   </div>
 </template>
@@ -58,7 +95,10 @@
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { SuccessFilled, WarningFilled } from '@element-plus/icons-vue'
+import { 
+  EditPen, CaretRight, FolderChecked, Edit, Check, View, Right, 
+  CircleCheckFilled, CircleCloseFilled, RefreshRight 
+} from '@element-plus/icons-vue'
 import { wordApi, type Word } from '../api'
 
 const router = useRouter()
@@ -204,80 +244,214 @@ onBeforeUnmount(async () => {
 .practice {
   max-width: 600px;
   margin: 0 auto;
-  padding: 0 10px;
 }
 
 .start-card, .practice-card {
   text-align: center;
 }
 
+.start-content {
+  padding: 40px 20px;
+}
+
+.icon-wrapper {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.practice-icon {
+  font-size: 40px;
+  color: #fff;
+}
+
 .start-content h2 {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  font-size: 28px;
+  color: #303133;
 }
 
 .start-content p {
-  margin-bottom: 20px;
-  color: #666;
+  margin-bottom: 32px;
+  color: #909399;
+  font-size: 15px;
 }
 
-.progress {
+.start-btn {
+  padding: 12px 40px;
+  font-size: 16px;
+}
+
+.progress-bar {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 30px;
-  color: #666;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 32px;
+  padding: 16px;
+  background: #f8f9fb;
+  border-radius: 10px;
+}
+
+.progress-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 80px;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: #909399;
+}
+
+.progress-count {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.progress-line {
+  flex: 1;
 }
 
 .word-display {
   margin-bottom: 40px;
+  padding: 30px;
+  background: linear-gradient(135deg, #f8f9fb 0%, #f0f2f5 100%);
+  border-radius: 12px;
+}
+
+.word-label {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .chinese {
-  font-size: 32px;
-  margin-bottom: 10px;
+  font-size: 36px;
+  margin-bottom: 12px;
+  color: #303133;
+  font-weight: 600;
 }
 
-.part-of-speech {
-  color: #909399;
-  font-size: 18px;
+.pos-tag {
+  font-size: 13px;
+}
+
+.answer-form {
+  margin-bottom: 20px;
+}
+
+.answer-input {
+  font-size: 16px;
+}
+
+.btn-group {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
 }
 
 .result {
-  margin-top: 30px;
-  padding: 20px;
-  border-radius: 8px;
-  font-size: 24px;
+  margin-top: 32px;
+  padding: 32px;
+  border-radius: 12px;
 }
 
 .result.correct {
-  background-color: #f0f9eb;
-  color: #67c23a;
+  background: linear-gradient(135deg, #f0f9eb 0%, #e1f3d8 100%);
 }
 
 .result.wrong {
-  background-color: #fef0f0;
+  background: linear-gradient(135deg, #fef0f0 0%, #fde2e2 100%);
+}
+
+.result-icon {
+  margin-bottom: 16px;
+}
+
+.result.correct .result-icon {
+  color: #67c23a;
+}
+
+.result.wrong .result-icon {
   color: #f56c6c;
 }
 
-.result p {
+.result-text {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.result.correct .result-text {
+  color: #67c23a;
+}
+
+.result.wrong .result-text {
+  color: #f56c6c;
+}
+
+.correct-answer {
   font-size: 16px;
-  margin-top: 10px;
+  margin-top: 12px;
+  color: #606266;
+}
+
+.correct-answer strong {
+  color: #303133;
+}
+
+.result-btn {
+  margin-top: 20px;
+  padding: 10px 30px;
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
 }
 
 @media (max-width: 768px) {
-  .practice {
-    padding: 0;
+  .start-content {
+    padding: 30px 15px;
+  }
+  
+  .icon-wrapper {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .practice-icon {
+    font-size: 30px;
   }
   
   .chinese {
     font-size: 28px;
   }
   
-  .part-of-speech {
-    font-size: 16px;
+  .word-display {
+    padding: 20px;
   }
   
   .result {
     font-size: 20px;
+    padding: 24px;
+  }
+  
+  .btn-group {
+    flex-wrap: wrap;
   }
 }
 
@@ -287,12 +461,20 @@ onBeforeUnmount(async () => {
   }
   
   .result {
-    font-size: 18px;
-    padding: 15px;
+    padding: 20px;
   }
   
-  .result p {
+  .result-text {
+    font-size: 20px;
+  }
+  
+  .correct-answer {
     font-size: 14px;
+  }
+  
+  .progress-bar {
+    flex-wrap: wrap;
+    gap: 12px;
   }
 }
 </style>

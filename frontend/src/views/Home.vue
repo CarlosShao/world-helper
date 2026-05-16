@@ -1,6 +1,12 @@
 <template>
   <div class="home">
     <el-card class="import-card">
+      <template #header>
+        <div class="import-header">
+          <el-icon class="header-icon"><DocumentAdd /></el-icon>
+          <span>导入单词</span>
+        </div>
+      </template>
       <el-upload
         class="upload-demo"
         drag
@@ -19,7 +25,8 @@
           </div>
         </template>
       </el-upload>
-      <el-button type="primary" @click="handleImport" :loading="importing" style="margin-top: 10px;">
+      <el-button type="primary" @click="handleImport" :loading="importing" style="margin-top: 16px;">
+        <el-icon style="margin-right: 6px;"><Upload /></el-icon>
         导入单词
       </el-button>
     </el-card>
@@ -27,69 +34,86 @@
     <el-card class="word-list-card">
       <template #header>
         <div class="card-header">
-          <span>单词列表</span>
+          <div class="header-left">
+            <el-icon class="header-icon"><Notebook /></el-icon>
+            <span>单词列表</span>
+            <el-tag type="info" size="small" style="margin-left: 12px;">共 {{ total }} 个</el-tag>
+          </div>
           <div class="search-bar">
             <el-input
               v-model="searchText"
-              placeholder="搜索中英文"
-              style="width: 200px; margin-right: 10px;"
+              placeholder="搜索中英文..."
+              style="width: 220px;"
               clearable
               @keyup.enter="loadWords"
               @clear="loadWords"
-            />
-            <el-button @click="loadWords">搜索</el-button>
-            <el-button @click="toggleAllChinese" style="margin-left: 10px;">
-              {{ allChineseHidden ? '显示全部中文' : '隐藏全部中文' }}
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+            <el-button type="primary" @click="loadWords">
+              <el-icon><Search /></el-icon>
+            </el-button>
+            <el-divider direction="vertical" />
+            <el-button @click="toggleAllChinese">
+              <el-icon><View /></el-icon>
+              {{ allChineseHidden ? '显示中文' : '隐藏中文' }}
             </el-button>
             <el-button @click="toggleAllEnglish">
-              {{ allEnglishHidden ? '显示全部英文' : '隐藏全部英文' }}
+              <el-icon><Hide /></el-icon>
+              {{ allEnglishHidden ? '显示英文' : '隐藏英文' }}
             </el-button>
             <el-button type="success" @click="goToPractice">
+              <el-icon style="margin-right: 6px;"><Edit /></el-icon>
               随手拼
             </el-button>
           </div>
         </div>
       </template>
 
-      <el-table :data="words" style="width: 100%">
-        <el-table-column type="index" label="序号" width="80" />
-        <el-table-column label="英文" width="200">
+      <el-table :data="words" style="width: 100%" stripe>
+        <el-table-column type="index" label="序号" width="70" align="center" />
+        <el-table-column label="英文" min-width="180">
           <template #default="{ row }">
-            <span v-if="!hiddenEnglish.has(row.id)">{{ row.english }}</span>
-            <span v-else style="color: #909399;">****</span>
+            <span v-if="!hiddenEnglish.has(row.id)" class="word-text">{{ row.english }}</span>
+            <span v-else class="hidden-text">****</span>
           </template>
         </el-table-column>
-        <el-table-column label="词性" width="120">
-          <template #default="{ row }">{{ row.part_of_speech }}</template>
+        <el-table-column label="词性" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag size="small" type="info">{{ row.part_of_speech }}</el-tag>
+          </template>
         </el-table-column>
-        <el-table-column label="中文">
+        <el-table-column label="中文" min-width="200">
           <template #default="{ row }">
             <span v-if="!hiddenChinese.has(row.id)">{{ row.chinese }}</span>
-            <span v-else style="color: #909399;">****</span>
+            <span v-else class="hidden-text">****</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250">
+        <el-table-column label="操作" width="200" align="center">
           <template #default="{ row }">
-            <el-button size="small" @click="toggleChinese(row.id)">
+            <el-button size="small" @click="toggleChinese(row.id)" text>
               {{ hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文' }}
             </el-button>
-            <el-button size="small" @click="toggleEnglish(row.id)">
+            <el-button size="small" @click="toggleEnglish(row.id)" text>
               {{ hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文' }}
             </el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <el-pagination
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
-        :total="total"
-        :page-sizes="[20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="loadWords"
-        @current-change="loadWords"
-        style="margin-top: 20px; justify-content: flex-end;"
-      />
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="loadWords"
+          @current-change="loadWords"
+        />
+      </div>
     </el-card>
   </div>
 </template>
@@ -97,7 +121,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { UploadFilled } from '@element-plus/icons-vue'
+import { UploadFilled, Search, View, Hide, Edit, Upload, DocumentAdd, Notebook } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { wordApi, type Word } from '../api'
 
@@ -208,15 +232,25 @@ onMounted(() => {
 .home {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px;
 }
 
 .import-card {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+}
+
+.import-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-icon {
+  font-size: 20px;
+  color: #667eea;
 }
 
 .word-list-card {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .card-header {
@@ -224,24 +258,60 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 15px;
+  gap: 16px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .search-bar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+}
+
+.word-text {
+  font-weight: 500;
+  color: #303133;
+}
+
+.hidden-text {
+  color: #c0c4cc;
+  letter-spacing: 2px;
+}
+
+.pagination-wrapper {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+:deep(.el-upload-dragger) {
+  border-radius: 10px;
+  border: 2px dashed #dcdfe6;
+  transition: all 0.3s ease;
+}
+
+:deep(.el-upload-dragger:hover) {
+  border-color: #667eea;
+}
+
+:deep(.el-icon--upload) {
+  color: #667eea;
 }
 
 @media (max-width: 768px) {
-  .home {
-    padding: 0 10px;
-  }
-  
   .card-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+  
+  .header-left {
+    width: 100%;
   }
   
   .search-bar {
@@ -254,25 +324,31 @@ onMounted(() => {
   }
   
   .word-list-card :deep(.el-table) {
-    font-size: 12px;
+    font-size: 13px;
   }
   
   .word-list-card :deep(.el-button) {
-    padding: 8px 12px;
+    padding: 6px 10px;
     font-size: 12px;
+  }
+  
+  .pagination-wrapper {
+    justify-content: center;
   }
 }
 
 @media (max-width: 480px) {
   .word-list-card :deep(.el-button) {
-    padding: 6px 10px;
+    padding: 5px 8px;
     font-size: 11px;
-    width: 100%;
-    margin: 2px 0;
   }
   
   .word-list-card :deep(.el-table-column) {
     min-width: 60px;
+  }
+  
+  .search-bar {
+    gap: 6px;
   }
 }
 </style>
