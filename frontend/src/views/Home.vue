@@ -1,36 +1,5 @@
 <template>
   <div class="home">
-    <el-card class="import-card">
-      <template #header>
-        <div class="import-header">
-          <el-icon class="header-icon"><DocumentAdd /></el-icon>
-          <span>导入单词</span>
-        </div>
-      </template>
-      <el-upload
-        class="upload-demo"
-        drag
-        action="/api/import"
-        :auto-upload="false"
-        :on-change="handleFileChange"
-        accept=".pdf"
-      >
-        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-        <div class="el-upload__text">
-          拖拽 PDF 文件到此处或 <em>点击上传</em>
-        </div>
-        <template #tip>
-          <div class="el-upload__tip">
-            支持 PDF 文件，将解析表格中的单词数据
-          </div>
-        </template>
-      </el-upload>
-      <el-button type="primary" @click="handleImport" :loading="importing" style="margin-top: 16px;">
-        <el-icon style="margin-right: 6px;"><Upload /></el-icon>
-        导入单词
-      </el-button>
-    </el-card>
-
     <el-card class="word-list-card">
       <template #header>
         <div class="card-header">
@@ -63,6 +32,10 @@
             <el-button @click="toggleAllEnglish">
               <el-icon><Hide /></el-icon>
               {{ allEnglishHidden ? '显示英文' : '隐藏英文' }}
+            </el-button>
+            <el-button type="primary" @click="showUploadDialog">
+              <el-icon><Upload /></el-icon>
+              导入
             </el-button>
             <el-button type="success" @click="goToPractice">
               <el-icon style="margin-right: 6px;"><Edit /></el-icon>
@@ -115,13 +88,66 @@
         />
       </div>
     </el-card>
+
+    <!-- 上传对话框 -->
+    <el-dialog
+      v-model="uploadDialogVisible"
+      title="导入单词"
+      width="520px"
+      class="upload-dialog"
+    >
+      <div class="upload-content">
+        <el-upload
+          class="upload-area"
+          drag
+          action="/api/import"
+          :auto-upload="false"
+          :on-change="handleFileChange"
+          accept=".pdf"
+          ref="uploadRef"
+        >
+          <div class="upload-icon">
+            <el-icon :size="48"><DocumentAdd /></el-icon>
+          </div>
+          <div class="upload-text">
+            拖拽 PDF 文件到此处或 <em>点击上传</em>
+          </div>
+          <template #tip>
+            <div class="upload-tip">
+              支持 PDF 文件，将解析表格中的单词数据
+            </div>
+          </template>
+        </el-upload>
+
+        <div v-if="selectedFile" class="file-info">
+          <el-icon><Document /></el-icon>
+          <span>{{ selectedFile.name }}</span>
+          <el-tag size="small" type="info" style="margin-left: 8px;">
+            {{ formatFileSize(selectedFile.size) }}
+          </el-tag>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="uploadDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleImport" :loading="importing">
+            <el-icon style="margin-right: 6px;"><Upload /></el-icon>
+            开始导入
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { UploadFilled, Search, View, Hide, Edit, Upload, DocumentAdd, Notebook } from '@element-plus/icons-vue'
+import { 
+  UploadFilled, Search, View, Hide, Edit, Upload, 
+  DocumentAdd, Notebook, Document 
+} from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { wordApi, type Word } from '../api'
 
@@ -134,6 +160,8 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const importing = ref(false)
 const selectedFile = ref<File | null>(null)
+const uploadDialogVisible = ref(false)
+const uploadRef = ref()
 
 const hiddenChinese = ref<Set<number>>(new Set())
 const hiddenEnglish = ref<Set<number>>(new Set())
@@ -150,16 +178,28 @@ const loadWords = async () => {
   }
 }
 
+const showUploadDialog = () => {
+  uploadDialogVisible.value = true
+  selectedFile.value = null
+}
+
 const handleFileChange = (file: any) => {
   selectedFile.value = file.raw
   
-  // 检测大文件，提示用户
-  if (file.size > 1024 * 1024) { // 大于1MB
+  if (file.size > 1024 * 1024) {
     ElMessage.warning({
       message: '文件较大，解析和导入可能需要一些时间，请耐心等待...',
       duration: 5000
     })
   }
+}
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
 const handleImport = async () => {
@@ -168,7 +208,6 @@ const handleImport = async () => {
     return
   }
   
-  // 再次提示大文件
   if (selectedFile.value.size > 1024 * 1024) {
     ElMessage.info('正在解析文件，请稍候...')
   }
@@ -177,6 +216,7 @@ const handleImport = async () => {
   try {
     const res = await wordApi.importFile(selectedFile.value)
     ElMessage.success(`成功导入 ${res.data.count} 个单词`)
+    uploadDialogVisible.value = false
     loadWords()
   } catch (error) {
     ElMessage.error('导入失败，请检查文件格式是否正确')
@@ -234,21 +274,6 @@ onMounted(() => {
   margin: 0 auto;
 }
 
-.import-card {
-  margin-bottom: 24px;
-}
-
-.import-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.header-icon {
-  font-size: 20px;
-  color: #667eea;
-}
-
 .word-list-card {
   margin-bottom: 24px;
 }
@@ -265,6 +290,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.header-icon {
+  font-size: 20px;
+  color: #667eea;
 }
 
 .search-bar {
@@ -290,18 +320,67 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-:deep(.el-upload-dragger) {
-  border-radius: 10px;
+.upload-content {
+  padding: 20px 0;
+}
+
+.upload-area {
+  width: 100%;
+}
+
+.upload-icon {
+  color: #667eea;
+  margin-bottom: 16px;
+}
+
+.upload-text {
+  color: #606266;
+  font-size: 14px;
+}
+
+.upload-text em {
+  color: #667eea;
+  font-style: normal;
+}
+
+.upload-tip {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  margin-top: 16px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.file-info .el-icon {
+  margin-right: 8px;
+  color: #667eea;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+:deep(.upload-area .el-upload-dragger) {
+  border-radius: 12px;
   border: 2px dashed #dcdfe6;
   transition: all 0.3s ease;
+  padding: 40px 20px;
 }
 
-:deep(.el-upload-dragger:hover) {
+:deep(.upload-area .el-upload-dragger:hover) {
   border-color: #667eea;
-}
-
-:deep(.el-icon--upload) {
-  color: #667eea;
+  background: #f5f7fa;
 }
 
 @media (max-width: 768px) {
