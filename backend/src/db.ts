@@ -83,6 +83,12 @@ export function getDb(): SqlJsDatabase {
 
 export function run(sql: string, params: any[] = []) {
   db.run(sql, params);
+}
+
+export function batchRun(operations: Array<{ sql: string; params?: any[] }>) {
+  operations.forEach(op => {
+    db.run(op.sql, op.params || []);
+  });
   saveDb();
 }
 

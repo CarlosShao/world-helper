@@ -3,7 +3,7 @@ import multer from 'multer';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { initDb, run, all, get, saveDb } from './db';
+import { initDb, run, all, get, batchRun, saveDb } from './db';
 import { parsePdf } from './pdfParser';
 
 const app = express();
@@ -58,17 +58,24 @@ async function startServer() {
       const filePath = req.file.path;
       const words = await parsePdf(filePath);
 
-      // 清空现有单词
-      run('DELETE FROM words');
-
-      // 插入新单词
+      // 批量操作：清空现有单词 + 插入新单词
+      const operations: Array<{ sql: string; params?: any[] }> = [
+        { sql: 'DELETE FROM words' }
+      ];
+      
       for (const word of words) {
-        run('INSERT INTO words (english, part_of_speech, chinese) VALUES (?, ?, ?)', 
-            [word.english, word.part_of_speech, word.chinese]);
+        operations.push({
+          sql: 'INSERT INTO words (english, part_of_speech, chinese) VALUES (?, ?, ?)',
+          params: [word.english, word.part_of_speech, word.chinese]
+        });
       }
+      
+      operations.push({
+        sql: 'INSERT INTO import_files (filename) VALUES (?)',
+        params: [req.file.originalname]
+      });
 
-      // 保存导入记录
-      run('INSERT INTO import_files (filename) VALUES (?)', [req.file.originalname]);
+      batchRun(operations);
 
       res.json({ success: true, count: words.length, words });
     } catch (error) {

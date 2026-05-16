@@ -120,6 +120,14 @@ const loadWords = async () => {
 
 const handleFileChange = (file: any) => {
   selectedFile.value = file.raw
+  
+  // 检测大文件，提示用户
+  if (file.size > 1024 * 1024) { // 大于1MB
+    ElMessage.warning({
+      message: '文件较大，解析和导入可能需要一些时间，请耐心等待...',
+      duration: 5000
+    })
+  }
 }
 
 const handleImport = async () => {
@@ -127,13 +135,19 @@ const handleImport = async () => {
     ElMessage.warning('请先选择文件')
     return
   }
+  
+  // 再次提示大文件
+  if (selectedFile.value.size > 1024 * 1024) {
+    ElMessage.info('正在解析文件，请稍候...')
+  }
+  
   importing.value = true
   try {
     const res = await wordApi.importFile(selectedFile.value)
     ElMessage.success(`成功导入 ${res.data.count} 个单词`)
     loadWords()
   } catch (error) {
-    ElMessage.error('导入失败')
+    ElMessage.error('导入失败，请检查文件格式是否正确')
   } finally {
     importing.value = false
   }
