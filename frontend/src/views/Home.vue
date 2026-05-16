@@ -3,10 +3,16 @@
     <el-card class="word-list-card">
       <template #header>
         <div class="card-header">
-          <div class="header-left">
-            <el-icon class="header-icon"><Notebook /></el-icon>
-            <span>单词列表</span>
-            <el-tag type="info" size="small" style="margin-left: 12px;">共 {{ total }} 个</el-tag>
+          <div class="header-top">
+            <div class="header-left">
+              <el-icon class="header-icon"><Notebook /></el-icon>
+              <span>单词列表</span>
+              <el-tag type="info" size="small" style="margin-left: 12px;">共 {{ total }} 个</el-tag>
+            </div>
+            <el-button type="primary" @click="showUploadDialog">
+              <el-icon><Upload /></el-icon>
+              导入
+            </el-button>
           </div>
           <div class="search-bar">
             <el-input
@@ -32,10 +38,6 @@
             <el-button @click="toggleAllEnglish">
               <el-icon><Hide /></el-icon>
               {{ allEnglishHidden ? '显示英文' : '隐藏英文' }}
-            </el-button>
-            <el-button type="primary" @click="showUploadDialog">
-              <el-icon><Upload /></el-icon>
-              导入
             </el-button>
             <el-button type="success" @click="goToPractice">
               <el-icon style="margin-right: 6px;"><Edit /></el-icon>
@@ -280,10 +282,15 @@ onMounted(() => {
 
 .card-header {
   display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header-top {
+  display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
+  width: 100%;
 }
 
 .header-left {
