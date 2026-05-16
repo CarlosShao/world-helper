@@ -36,6 +36,64 @@ docker-compose up -d --build
 docker-compose down
 ```
 
+### 本地部署
+
+#### 前置需求
+- 安装 [Docker](https://www.docker.com/) 和 [Docker Compose](https://docs.docker.com/compose/)（推荐方式）
+- 或者安装 [Node.js 18+](https://nodejs.org/)（手动部署方式）
+
+#### Docker 一键部署（最简单）
+```bash
+# 1. 克隆或拉取代码
+git clone <你的仓库地址>
+cd word-helper
+
+# 2. 启动应用
+docker-compose up -d
+
+# 3. 访问：http://localhost:3000
+```
+
+#### 手动部署（不推荐）
+```bash
+# 1. 安装后端依赖
+cd backend
+npm install
+
+# 2. 安装前端依赖
+cd ../frontend
+npm install
+
+# 3. 构建前端
+npm run build
+
+# 4. 复制构建产物
+cp -r dist/* ../backend/public/
+
+# 5. 启动后端
+cd ../backend
+npm run dev
+
+# 6. 访问：http://localhost:3000
+```
+
+## 公网访问
+
+### 方案一：云服务器（推荐长期使用）
+1. 购买云服务器（阿里云、腾讯云、AWS等）
+2. 在服务器上安装 Docker
+3. 按上述 Docker 部署方式操作
+4. 配置安全组开放 3000 端口
+5. 可选：购买域名解析到服务器 IP
+
+### 方案二：内网穿透（临时测试）
+使用 ngrok、frp 等工具：
+```bash
+# 本地启动应用后
+ngrok http 3000
+# 会得到一个公网访问地址
+```
+
 ### 开发模式
 
 #### 后端开发
