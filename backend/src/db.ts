@@ -65,6 +65,15 @@ export async function initDb(): Promise<SqlJsDatabase> {
     )
   `);
   
+  db.run(`
+    CREATE TABLE IF NOT EXISTS practice_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+      end_time DATETIME,
+      status TEXT DEFAULT 'active'
+    )
+  `);
+  
   saveDb();
   
   return db;

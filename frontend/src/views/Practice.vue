@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { SuccessFilled, WarningFilled } from '@element-plus/icons-vue'
@@ -70,6 +70,7 @@ const showResult = ref(false)
 const isCorrect = ref(false)
 const checking = ref(false)
 const inputRef = ref()
+const sessionId = ref<number | null>(null)
 
 const loadWords = async () => {
   try {
@@ -101,6 +102,14 @@ const saveProgress = async () => {
 }
 
 const startPractice = async () => {
+  // 开始新的练习会话
+  try {
+    const res = await wordApi.startPractice()
+    sessionId.value = res.data.sessionId
+  } catch (error) {
+    console.error('Start practice error:', error)
+  }
+  
   await loadWords()
   if (words.value.length === 0) {
     ElMessage.warning('请先导入单词')
@@ -162,6 +171,14 @@ const nextWord = async () => {
     if (currentIndex.value >= words.value.length) {
       currentIndex.value = 0
       ElMessage.success('恭喜完成一轮练习！')
+      // 完成练习，结束会话
+      if (sessionId.value) {
+        try {
+          await wordApi.endPractice(sessionId.value)
+        } catch (error) {
+          console.error('End practice error:', error)
+        }
+      }
     }
   }
   showCurrentWord()
@@ -169,6 +186,17 @@ const nextWord = async () => {
 
 onMounted(() => {
   startPractice()
+})
+
+onBeforeUnmount(async () => {
+  // 用户离开页面时，结束练习会话
+  if (sessionId.value) {
+    try {
+      await wordApi.endPractice(sessionId.value)
+    } catch (error) {
+      console.error('End practice error:', error)
+    }
+  }
 })
 </script>
 

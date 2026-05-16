@@ -181,13 +181,50 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // 获取昨日错词（其实就是错题集）
+  // 获取昨日错词（上次练习的错词）
   app.get('/api/yesterday-errors', (req, res) => {
+    // 获取上一个已结束的练习会话
+    const lastSession = get('SELECT * FROM practice_sessions WHERE status = ? ORDER BY id DESC LIMIT 1', ['completed']);
+    
+    if (!lastSession) {
+      return res.json({ words: [], sessionId: null });
+    }
+    
+    // 获取这个会话期间的错题
     const words = all(`
-      SELECT w.* FROM words w 
+      SELECT w.*, ew.error_date FROM words w 
       JOIN error_words ew ON w.id = ew.word_id
-    `);
-    res.json({ words });
+      WHERE ew.error_date >= ? AND ew.error_date <= ?
+      ORDER BY ew.error_date DESC
+    `, [lastSession.start_time, lastSession.end_time]);
+    
+    res.json({ words, sessionId: lastSession.id });
+  });
+
+  // 开始新的练习会话
+  app.post('/api/practice/start', (req, res) => {
+    // 结束所有之前的活跃会话
+    run('UPDATE practice_sessions SET status = ? WHERE status = ?', ['abandoned', 'active']);
+    
+    // 创建新会话
+    const result = run('INSERT INTO practice_sessions (start_time, status) VALUES (datetime("now"), ?)', ['active']);
+    const session = get('SELECT * FROM practice_sessions ORDER BY id DESC LIMIT 1');
+    
+    res.json({ success: true, sessionId: session?.id });
+  });
+
+  // 结束练习会话
+  app.post('/api/practice/end', (req, res) => {
+    const { sessionId } = req.body;
+    
+    if (sessionId) {
+      run('UPDATE practice_sessions SET status = ?, end_time = datetime("now") WHERE id = ?', ['completed', sessionId]);
+    } else {
+      // 如果没有指定sessionId，结束所有活跃会话
+      run('UPDATE practice_sessions SET status = ?, end_time = datetime("now") WHERE status = ?', ['completed', 'active']);
+    }
+    
+    res.json({ success: true });
   });
 
   // 保存/获取设置（如随手拼的进度）

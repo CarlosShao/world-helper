@@ -58,9 +58,9 @@ const showResult = ref(false)
 const isCorrect = ref(false)
 
 const loadWords = async () => {
-  // 昨日错词其实就是错题集
+  // 昨日错词就是上次练习会话中的错题
   const res = await wordApi.getYesterdayErrors()
-  words.value = res.data.words
+  words.value = res.data.words || []
   if (words.value.length > 0) {
     currentWord.value = words.value[0]
   }

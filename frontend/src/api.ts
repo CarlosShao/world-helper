@@ -50,6 +50,14 @@ export const wordApi = {
     return api.get('/yesterday-errors')
   },
   
+  startPractice: () => {
+    return api.post('/practice/start')
+  },
+  
+  endPractice: (sessionId?: number) => {
+    return api.post('/practice/end', { sessionId })
+  },
+  
   getSetting: (key: string) => {
     return api.get(`/settings/${key}`)
   },
