@@ -1,54 +1,87 @@
 import pdf from 'pdf-parse';
-import fs from 'fs';
 
-interface WordItem {
-  english: string;
-  part_of_speech: string;
-  chinese: string;
-}
-
-export async function parsePdf(filePath: string): Promise<WordItem[]> {
-  const dataBuffer = fs.readFileSync(filePath);
+export async function parsePdf(filePath: string): Promise<Array<{ english: string; part_of_speech: string; chinese: string }>> {
+  const dataBuffer = require('fs').readFileSync(filePath);
   const data = await pdf(dataBuffer);
-  const text = data.text;
   
-  const words: WordItem[] = [];
+  const lines = data.text.split('\n').map(line => line.trim()).filter(line => line);
   
-  // 按行分割文本
-  const lines = text.split('\n').filter(line => line.trim());
+  const words: Array<{ english: string; part_of_speech: string; chinese: string }> = [];
   
-  // 尝试解析常见的单词表格式
-  // 格式示例：dominating; adj.; 统治的，支配的；个性强势的
-  // 或者：dominating adj. 统治的，支配的
+  // 找到两个 "WordMeaning" 标记的位置，来区分单词区域和释义区域
+  const wordMeaningIndices: number[] = [];
+  lines.forEach((line, i) => {
+    if (line === 'WordMeaning') {
+      wordMeaningIndices.push(i);
+    }
+  });
   
-  for (let line of lines) {
-    line = line.trim();
-    if (!line) continue;
+  if (wordMeaningIndices.length >= 2) {
+    // 第一个 WordMeaning 后面是单词
+    const startWords = wordMeaningIndices[0] + 1;
+    // 第二个 WordMeaning 后面是释义
+    const startMeanings = wordMeaningIndices[1] + 1;
     
-    // 尝试用分号分割
-    let parts = line.split(/[;；]/).map(p => p.trim()).filter(p => p);
-    if (parts.length >= 3) {
-      words.push({
-        english: parts[0],
-        part_of_speech: parts[1],
-        chinese: parts.slice(2).join('；')
-      });
-      continue;
+    // 找到释义区域结束的位置（第一个非数字、非释义的行）
+    let endWords = startWords;
+    while (endWords < lines.length && lines[endWords] !== 'WordMeaning') {
+      endWords++;
     }
     
-    // 尝试用空格分割，寻找词性标识
-    const posPattern = /\b(adj|adv|n|v|prep|conj|pron|num|interj)\.?\b/i;
-    const match = line.match(posPattern);
-    if (match) {
-      const posIndex = match.index!;
-      const english = line.slice(0, posIndex).trim();
-      const partOfSpeech = match[0];
-      const chinese = line.slice(posIndex + match[0].length).trim();
+    let endMeanings = startMeanings;
+    while (endMeanings < lines.length && 
+           !lines[endMeanings].includes('共') && 
+           !lines[endMeanings].includes('近日') &&
+           !lines[endMeanings].includes('扫码')) {
+      endMeanings++;
+    }
+    
+    // 提取单词：数字行 + 下一行是单词
+    const englishMap = new Map<number, string>();
+    for (let i = startWords; i < endWords - 1; i++) {
+      const line = lines[i];
+      const numMatch = line.match(/^(\d+)$/);
+      if (numMatch) {
+        const index = parseInt(numMatch[1]);
+        if (i + 1 < endWords) {
+          englishMap.set(index, lines[i + 1]);
+        }
+      }
+    }
+    
+    // 提取释义：数字行 + 下一行是释义
+    const meaningMap = new Map<number, string>();
+    for (let i = startMeanings; i < endMeanings - 1; i++) {
+      const line = lines[i];
+      const numMatch = line.match(/^(\d+)$/);
+      if (numMatch) {
+        const index = parseInt(numMatch[1]);
+        if (i + 1 < endMeanings) {
+          meaningMap.set(index, lines[i + 1]);
+        }
+      }
+    }
+    
+    // 配对单词和释义
+    const maxIndex = Math.max(...Array.from(englishMap.keys()).concat(Array.from(meaningMap.keys())));
+    for (let i = 1; i <= maxIndex; i++) {
+      const english = englishMap.get(i);
+      const meaning = meaningMap.get(i);
       
-      if (english && chinese) {
+      if (english && meaning) {
+        let part_of_speech = '';
+        let chinese = meaning;
+        
+        // 匹配释义中的词性标记：adj., n., v., adv., collocation., 等
+        const posMatch = meaning.match(/^([a-z]+\.?)\s*(.*)$/i);
+        if (posMatch) {
+          part_of_speech = posMatch[1].trim();
+          chinese = posMatch[2].trim();
+        }
+        
         words.push({
           english,
-          part_of_speech: partOfSpeech,
+          part_of_speech,
           chinese
         });
       }
