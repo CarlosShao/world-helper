@@ -3,7 +3,6 @@
     <el-header>
       <el-menu :default-active="activeMenu" mode="horizontal" router>
         <el-menu-item index="/">首页</el-menu-item>
-        <el-menu-item index="/practice">随手拼</el-menu-item>
         <el-menu-item index="/error-words">错题集</el-menu-item>
         <el-menu-item index="/yesterday-errors">昨日错词巩固</el-menu-item>
       </el-menu>
