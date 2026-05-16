@@ -35,6 +35,7 @@ const activeMenu = computed(() => route.path)
 .el-header {
   background-color: #409eff;
   padding: 0;
+  height: auto;
 }
 
 .el-menu {
@@ -43,5 +44,23 @@ const activeMenu = computed(() => route.path)
 
 .el-main {
   padding: 20px;
+}
+
+@media (max-width: 768px) {
+  .el-main {
+    padding: 10px;
+  }
+  
+  .el-menu-item {
+    padding: 0 10px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .el-menu-item {
+    padding: 0 8px;
+    font-size: 13px;
+  }
 }
 </style>

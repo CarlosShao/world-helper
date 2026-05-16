@@ -204,6 +204,7 @@ onBeforeUnmount(async () => {
 .practice {
   max-width: 600px;
   margin: 0 auto;
+  padding: 0 10px;
 }
 
 .start-card, .practice-card {
@@ -260,5 +261,38 @@ onBeforeUnmount(async () => {
 .result p {
   font-size: 16px;
   margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+  .practice {
+    padding: 0;
+  }
+  
+  .chinese {
+    font-size: 28px;
+  }
+  
+  .part-of-speech {
+    font-size: 16px;
+  }
+  
+  .result {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chinese {
+    font-size: 24px;
+  }
+  
+  .result {
+    font-size: 18px;
+    padding: 15px;
+  }
+  
+  .result p {
+    font-size: 14px;
+  }
 }
 </style>

@@ -28,12 +28,14 @@
       <template #header>
         <div class="card-header">
           <span>单词列表</span>
-          <div>
+          <div class="search-bar">
             <el-input
               v-model="searchText"
               placeholder="搜索中英文"
               style="width: 200px; margin-right: 10px;"
+              clearable
               @keyup.enter="loadWords"
+              @clear="loadWords"
             />
             <el-button @click="loadWords">搜索</el-button>
             <el-button @click="toggleAllChinese" style="margin-left: 10px;">
@@ -206,6 +208,7 @@ onMounted(() => {
 .home {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 0 20px;
 }
 
 .import-card {
@@ -220,5 +223,56 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .home {
+    padding: 0 10px;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .search-bar {
+    width: 100%;
+  }
+  
+  .search-bar .el-input {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .word-list-card :deep(.el-table) {
+    font-size: 12px;
+  }
+  
+  .word-list-card :deep(.el-button) {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .word-list-card :deep(.el-button) {
+    padding: 6px 10px;
+    font-size: 11px;
+    width: 100%;
+    margin: 2px 0;
+  }
+  
+  .word-list-card :deep(.el-table-column) {
+    min-width: 60px;
+  }
 }
 </style>

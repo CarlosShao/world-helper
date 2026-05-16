@@ -159,12 +159,15 @@ onMounted(() => {
 .error-words {
   max-width: 1000px;
   margin: 0 auto;
+  padding: 0 10px;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .practice-content {
@@ -203,5 +206,30 @@ onMounted(() => {
 .result.wrong {
   background-color: #fef0f0;
   color: #f56c6c;
+}
+
+@media (max-width: 768px) {
+  .error-words {
+    padding: 0;
+  }
+  
+  .chinese {
+    font-size: 24px;
+  }
+  
+  .error-words :deep(.el-table) {
+    font-size: 12px;
+  }
+  
+  .error-words :deep(.el-dialog) {
+    width: 90% !important;
+    margin: 5vh auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .chinese {
+    font-size: 22px;
+  }
 }
 </style>
