@@ -1,24 +1,60 @@
 <template>
-  <el-container class="app-container">
+  <el-container class="app-container" v-if="isLoggedIn">
     <el-header>
-      <el-menu :default-active="activeMenu" mode="horizontal" router>
-        <el-menu-item index="/">首页</el-menu-item>
-        <el-menu-item index="/error-words">错题集</el-menu-item>
-        <el-menu-item index="/yesterday-errors">昨日错词巩固</el-menu-item>
-      </el-menu>
+      <div class="header-content">
+        <el-menu :default-active="activeMenu" mode="horizontal" router>
+          <el-menu-item index="/">首页</el-menu-item>
+          <el-menu-item index="/error-words">错题集</el-menu-item>
+          <el-menu-item index="/yesterday-errors">昨日错词巩固</el-menu-item>
+        </el-menu>
+        <div class="user-info">
+          <span class="username">
+            <el-icon><User /></el-icon>
+            {{ username }}
+          </span>
+          <el-button type="info" size="small" @click="handleLogout">
+            <el-icon><SwitchButton /></el-icon>
+            退出
+          </el-button>
+        </div>
+      </div>
     </el-header>
     <el-main>
       <router-view />
     </el-main>
   </el-container>
+  <router-view v-else />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { User, SwitchButton } from '@element-plus/icons-vue'
 
 const route = useRoute()
+const router = useRouter()
 const activeMenu = computed(() => route.path)
+const username = ref('')
+
+const isLoggedIn = computed(() => !!localStorage.getItem('token'))
+
+onMounted(() => {
+  username.value = localStorage.getItem('username') || ''
+})
+
+const handleLogout = async () => {
+  ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('username')
+    ElMessage.success('退出成功')
+    router.push('/login')
+  }).catch(() => {})
+}
 </script>
 
 <style>
@@ -45,9 +81,32 @@ body {
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 60px;
+  padding: 0 20px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.username {
+  color: #fff;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .el-menu {
   border-bottom: none;
   background: transparent;
+  flex: 1;
 }
 
 .el-menu--horizontal > .el-menu-item {
@@ -183,6 +242,11 @@ body {
 }
 
 @media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    padding: 10px 16px;
+  }
+  
   .el-main {
     padding: 15px 10px;
   }

@@ -48,6 +48,19 @@ async function startServer() {
 
   // API 路由
 
+  // 登录接口
+  app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    
+    if (username === 'carlos' && password === 'swq') {
+      // 生成简单的token
+      const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
+      res.json({ success: true, token, username });
+    } else {
+      res.status(401).json({ success: false, message: '用户名或密码错误' });
+    }
+  });
+
   // 导入PDF文件
   app.post('/api/import', upload.single('file'), async (req, res) => {
     try {
