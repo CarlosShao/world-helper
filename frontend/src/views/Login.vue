@@ -67,10 +67,12 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Reading, User, Lock, Unlock } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
+import { useAuth } from '../composables/useAuth'
 
 const router = useRouter()
 const loginFormRef = ref<FormInstance>()
 const logging = ref(false)
+const { login } = useAuth()
 
 const loginForm = reactive({
   username: '',
@@ -103,8 +105,7 @@ const handleLogin = async () => {
         const data = await response.json()
         
         if (data.success) {
-          localStorage.setItem('token', data.token)
-          localStorage.setItem('username', loginForm.username)
+          login(data.token, loginForm.username)
           ElMessage.success('登录成功！')
           router.push('/')
         } else {

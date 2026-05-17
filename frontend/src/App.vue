@@ -32,20 +32,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { User, SwitchButton } from '@element-plus/icons-vue'
+import { useAuth } from './composables/useAuth'
 
 const route = useRoute()
 const router = useRouter()
 const activeMenu = computed(() => route.path)
-const username = ref('')
-
-const isLoggedIn = computed(() => !!localStorage.getItem('token'))
+const { isLoggedIn, username, updateAuthState, logout } = useAuth()
 
 onMounted(() => {
-  username.value = localStorage.getItem('username') || ''
+  updateAuthState()
+})
+
+watch(() => route.path, () => {
+  updateAuthState()
 })
 
 const handleLogout = async () => {
@@ -54,8 +57,7 @@ const handleLogout = async () => {
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('username')
+    logout()
     ElMessage.success('退出成功')
     router.push('/login')
   }).catch(() => {})
