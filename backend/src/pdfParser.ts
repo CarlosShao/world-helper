@@ -8,100 +8,155 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   
   console.log(`Total lines: ${lines.length}`);
   
-  const allNumberedIndices: Array<{ index: number; lineNum: number }> = [];
+  // 方法2：假设双栏PDF，Word和Meaning交替出现
+  // 找到所有 "WordMeaning" 标记来确定栏的边界
+  const wordMeaningIndices: number[] = [];
   lines.forEach((line, i) => {
-    const numMatch = line.match(/^(\d+)$/);
-    if (numMatch) {
-      const index = parseInt(numMatch[1]);
-      allNumberedIndices.push({ index, lineNum: i });
+    if (line === 'WordMeaning') {
+      wordMeaningIndices.push(i);
     }
   });
   
-  console.log(`Found ${allNumberedIndices.length} numbered indices`);
-  
-  const indexMap = new Map<number, { english: string; meaning: string }>();
-  
-  for (let i = 0; i < allNumberedIndices.length; i++) {
-    const { index, lineNum } = allNumberedIndices[i];
-    const nextIndex = i < allNumberedIndices.length - 1 ? allNumberedIndices[i + 1].lineNum : lines.length;
-    
-    const content: string[] = [];
-    for (let j = lineNum + 1; j < nextIndex && j < lines.length; j++) {
-      const line = lines[j];
-      if (line === 'WordMeaning') break;
-      content.push(line);
-    }
-    
-    if (content.length >= 2) {
-      indexMap.set(index, {
-        english: content[0],
-        meaning: content.slice(1).join(' ')
-      });
-    }
-  }
-  
-  console.log(`Found ${indexMap.size} unique indices`);
+  console.log(`Found ${wordMeaningIndices.length} WordMeaning markers`);
   
   const words: Array<{ english: string; part_of_speech: string; chinese: string }> = [];
   
-  for (let i = 1; i <= Math.max(...Array.from(indexMap.keys())); i++) {
-    const item = indexMap.get(i);
-    if (!item) continue;
+  if (wordMeaningIndices.length >= 2) {
+    console.log('Using dual-column mode...');
     
-    let english = item.english.trim();
-    let meaning = item.meaning;
+    // 第一栏（英语）从第一个WordMeaning后面开始
+    const wordsStart = wordMeaningIndices[0] + 1;
+    // 第二栏（释义）从第二个WordMeaning后面开始
+    const meaningsStart = wordMeaningIndices[1] + 1;
     
-    // 关键修复：永远不把纯数字当作单词
-    if (/^\d+$/.test(english)) {
-      console.log(`Skipping pure number: ${english}`);
-      continue;
-    }
+    // 找到下一个WordMeaning或文档结尾作为边界
+    const wordsEnd = wordMeaningIndices.length > 2 ? wordMeaningIndices[2] : lines.length;
+    const meaningsEnd = wordMeaningIndices.length > 3 ? wordMeaningIndices[3] : lines.length;
     
-    // 如果英语部分太短或像是不完整的，检查是否应该与下一个合并
-    if (isLikelyIncomplete(english) && i + 1 <= Math.max(...Array.from(indexMap.keys()))) {
-      const nextItem = indexMap.get(i + 1);
-      if (nextItem) {
-        const nextEnglish = nextItem.english.trim();
-        
-        // 如果下一个也是纯数字，跳过
-        if (/^\d+$/.test(nextEnglish)) {
+    // 提取英语单词（处理跨行）
+    const englishMap = parseColumn(lines.slice(wordsStart, wordsEnd));
+    // 提取释义（处理跨行）
+    const meaningMap = parseColumn(lines.slice(meaningsStart, meaningsEnd));
+    
+    console.log(`English entries: ${englishMap.size}, Meaning entries: ${meaningMap.size}`);
+    
+    // 合并结果
+    const maxIndex = Math.max(...Array.from(englishMap.keys()));
+    for (let i = 1; i <= maxIndex; i++) {
+      const english = englishMap.get(i);
+      const meaning = meaningMap.get(i);
+      
+      if (english && meaning) {
+        // 过滤纯数字
+        if (/^\d+$/.test(english.trim())) {
+          console.log(`Skipping pure number: ${english}`);
           continue;
         }
         
-        // 合并两个部分（跨行短语）
-        const mergedEnglish = english + ' ' + nextEnglish;
-        const mergedMeaning = meaning + ' ' + nextItem.meaning;
+        let part_of_speech = '';
+        let chinese = meaning;
         
-        // 验证合并后的结果看起来像个真正的单词/短语
-        if (looksLikeValidWord(mergedEnglish)) {
-          english = mergedEnglish;
-          meaning = mergedMeaning;
-          console.log(`Merged: ${english}`);
-          // 跳过下一个，因为已经合并了
-          i++;
+        const posMatch = meaning.match(/^([a-z]+\.?)\s*(.*)$/i);
+        if (posMatch) {
+          part_of_speech = posMatch[1].trim();
+          chinese = posMatch[2].trim();
         }
+        
+        words.push({
+          english: english.trim(),
+          part_of_speech,
+          chinese
+        });
+      }
+    }
+  }
+  
+  // 如果双栏模式没找到数据，尝试单栏模式
+  if (words.length === 0) {
+    console.log('Falling back to single-column mode...');
+    
+    const allNumberedIndices: Array<{ index: number; lineNum: number }> = [];
+    lines.forEach((line, i) => {
+      const numMatch = line.match(/^(\d+)$/);
+      if (numMatch) {
+        const index = parseInt(numMatch[1]);
+        allNumberedIndices.push({ index, lineNum: i });
+      }
+    });
+    
+    const indexMap = new Map<number, { english: string; meaning: string }>();
+    
+    for (let i = 0; i < allNumberedIndices.length; i++) {
+      const { index, lineNum } = allNumberedIndices[i];
+      const nextIndex = i < allNumberedIndices.length - 1 ? allNumberedIndices[i + 1].lineNum : lines.length;
+      
+      const content: string[] = [];
+      for (let j = lineNum + 1; j < nextIndex && j < lines.length; j++) {
+        const line = lines[j];
+        if (line === 'WordMeaning') break;
+        content.push(line);
+      }
+      
+      if (content.length >= 2) {
+        indexMap.set(index, {
+          english: content[0],
+          meaning: content.slice(1).join(' ')
+        });
       }
     }
     
-    // 再次检查，确保不是纯数字
-    if (/^\d+$/.test(english)) {
-      continue;
+    for (let i = 1; i <= Math.max(...Array.from(indexMap.keys())); i++) {
+      const item = indexMap.get(i);
+      if (!item) continue;
+      
+      let english = item.english.trim();
+      let meaning = item.meaning;
+      
+      if (/^\d+$/.test(english)) {
+        console.log(`Skipping pure number: ${english}`);
+        continue;
+      }
+      
+      if (isLikelyIncomplete(english) && i + 1 <= Math.max(...Array.from(indexMap.keys()))) {
+        const nextItem = indexMap.get(i + 1);
+        if (nextItem) {
+          const nextEnglish = nextItem.english.trim();
+          
+          if (/^\d+$/.test(nextEnglish)) {
+            continue;
+          }
+          
+          const mergedEnglish = english + ' ' + nextEnglish;
+          const mergedMeaning = meaning + ' ' + nextItem.meaning;
+          
+          if (looksLikeValidWord(mergedEnglish)) {
+            english = mergedEnglish;
+            meaning = mergedMeaning;
+            console.log(`Merged: ${english}`);
+            i++;
+          }
+        }
+      }
+      
+      if (/^\d+$/.test(english)) {
+        continue;
+      }
+      
+      let part_of_speech = '';
+      let chinese = meaning;
+      
+      const posMatch = meaning.match(/^([a-z]+\.?)\s*(.*)$/i);
+      if (posMatch) {
+        part_of_speech = posMatch[1].trim();
+        chinese = posMatch[2].trim();
+      }
+      
+      words.push({
+        english,
+        part_of_speech,
+        chinese
+      });
     }
-    
-    let part_of_speech = '';
-    let chinese = meaning;
-    
-    const posMatch = meaning.match(/^([a-z]+\.?)\s*(.*)$/i);
-    if (posMatch) {
-      part_of_speech = posMatch[1].trim();
-      chinese = posMatch[2].trim();
-    }
-    
-    words.push({
-      english,
-      part_of_speech,
-      chinese
-    });
   }
   
   console.log(`Successfully parsed ${words.length} words`);
@@ -109,14 +164,58 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   return words;
 }
 
-// 判断单词是否看起来不完整（可能需要与下一个合并）
+// 解析一列数据（处理跨行）
+function parseColumn(lines: string[]): Map<number, string> {
+  const result = new Map<number, string>();
+  let currentIndex: number | null = null;
+  let currentContent: string[] = [];
+  
+  for (const line of lines) {
+    const numMatch = line.match(/^(\d+)$/);
+    
+    if (numMatch) {
+      // 遇到新的序号
+      if (currentIndex !== null && currentContent.length > 0) {
+        result.set(currentIndex, currentContent.join(' '));
+      }
+      
+      currentIndex = parseInt(numMatch[1]);
+      currentContent = [];
+    } else if (currentIndex !== null) {
+      // 在当前序号下添加内容
+      // 如果内容看起来像是下一个序号的开始（以数字开头），则结束当前条目
+      if (/^\d/.test(line)) {
+        result.set(currentIndex, currentContent.join(' '));
+        
+        // 尝试解析新的序号
+        const newNumMatch = line.match(/^(\d+)\s*(.*)/);
+        if (newNumMatch) {
+          currentIndex = parseInt(newNumMatch[1]);
+          const remaining = newNumMatch[2].trim();
+          currentContent = remaining ? [remaining] : [];
+        } else {
+          currentIndex = null;
+          currentContent = [];
+        }
+      } else {
+        currentContent.push(line);
+      }
+    }
+  }
+  
+  // 添加最后一个条目
+  if (currentIndex !== null && currentContent.length > 0) {
+    result.set(currentIndex, currentContent.join(' '));
+  }
+  
+  return result;
+}
+
 function isLikelyIncomplete(word: string): boolean {
   const trimmed = word.trim().toLowerCase();
   
-  // 纯数字永远不算不完整
   if (/^\d+$/.test(trimmed)) return false;
   
-  // 常见的短语组成部分 - 这些单独出现很可能是跨行的一部分
   const incompletePatterns = [
     'sth', 'sb',
     'into', 'onto', 'onto',
@@ -139,23 +238,16 @@ function isLikelyIncomplete(word: string): boolean {
   return incompletePatterns.includes(trimmed);
 }
 
-// 判断是否像是一个有效的单词或短语
 function looksLikeValidWord(text: string): boolean {
   const trimmed = text.trim().toLowerCase();
   
-  // 如果包含多个单词，很可能是短语
   if (trimmed.includes(' ')) {
     return true;
   }
   
-  // 如果是单个单词，长度应该合理（至少3个字符）
   if (trimmed.length >= 3) {
-    // 不应该是纯数字
     if (/^\d+$/.test(trimmed)) return false;
-    
-    // 不应该全是大写或小写（可能是缩写或特殊标记）
     if (trimmed === trimmed.toUpperCase() && trimmed.length <= 4) return false;
-    
     return true;
   }
   
