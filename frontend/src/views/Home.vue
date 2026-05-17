@@ -81,7 +81,7 @@
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="词性" width="100" align="left">
+          <el-table-column label="词性" width="150" align="left">
             <template #default="{ row }">
               <el-tag v-if="row.part_of_speech && row.type !== 'group'" size="small" type="info">{{ row.part_of_speech }}</el-tag>
             </template>
