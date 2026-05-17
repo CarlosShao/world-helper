@@ -129,10 +129,12 @@
                       更多 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
                     </el-button>
                     <template #dropdown>
-                      <el-dropdown-item command="setRoot">设为主词</el-dropdown-item>
-                      <el-dropdown-item command="addToOther">关联到其他词</el-dropdown-item>
-                      <el-dropdown-item command="removeRelations">设为独立词</el-dropdown-item>
-                    </el-dropdown-menu>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="setRoot">设为主词</el-dropdown-item>
+                        <el-dropdown-item command="addToOther">关联到其他词</el-dropdown-item>
+                        <el-dropdown-item command="removeRelations">设为独立词</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
                   </el-dropdown>
                 </div>
               </div>
@@ -235,7 +237,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage, ElConfirm } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   UploadFilled, Search, View, Hide, Edit, Upload,
   DocumentAdd, Notebook, Document, RefreshCw,
@@ -350,7 +352,7 @@ const classifyAllWords = async () => {
 }
 
 const reclassifyWords = async () => {
-  await ElConfirm('确定要重新分类所有单词吗？', '提示', {
+  await ElMessageBox.confirm('确定要重新分类所有单词吗？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消'
   })
@@ -420,7 +422,7 @@ const handleCommand = async (cmd: string, word: any) => {
 }
 
 const setAsRoot = async (word: any) => {
-  await ElConfirm(`确定要将 "${word.english}" 设为主词吗？`, '提示', {
+  await ElMessageBox.confirm(`确定要将 "${word.english}" 设为主词吗？`, '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消'
   })
@@ -459,7 +461,7 @@ const confirmRelation = async () => {
 }
 
 const removeAllRelations = async (word: any) => {
-  await ElConfirm(`确定要将 "${word.english}" 设为独立词吗？`, '提示', {
+  await ElMessageBox.confirm(`确定要将 "${word.english}" 设为独立词吗？`, '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消'
   })
