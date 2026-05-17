@@ -27,6 +27,7 @@ export async function initDb(): Promise<SqlJsDatabase> {
       english TEXT NOT NULL,
       part_of_speech TEXT,
       chinese TEXT NOT NULL,
+      display_name TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       is_classified INTEGER DEFAULT 0
     )
