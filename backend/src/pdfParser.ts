@@ -64,8 +64,34 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
     const items = indexMap.get(i);
     if (items && items.length >= 2) {
       // 第一个是单词，第二个是释义
-      const english = items[0];
-      const meaning = items[1];
+      let english = items[0];
+      let meaning = items[1];
+      
+      // 处理双栏PDF中跨行的情况：如果当前index的单词太短，尝试合并下一个index的内容
+      // 这是针对PDF中单词被分成多行的情况（如 "translate into" 和 "sth"）
+      if (i + 1 <= maxIndex) {
+        const nextItems = indexMap.get(i + 1);
+        if (nextItems && nextItems.length >= 2) {
+          const nextEnglish = nextItems[0];
+          const nextMeaning = nextItems[1];
+          
+          // 如果当前单词看起来不完整（太短或像前缀），尝试合并
+          // 检查当前单词是否可能是下一个单词的前缀或部分
+          if (isIncompleteWord(english) && !isIncompleteWord(nextEnglish)) {
+            // 将当前的单词内容合并到下一个
+            english = english + ' ' + nextEnglish;
+            meaning = meaning + ' ' + nextMeaning;
+            // 跳过下一个索引
+            i++;
+          } else if (isIncompleteWord(nextEnglish)) {
+            // 如果下一个单词看起来不完整，合并到当前
+            english = english + ' ' + nextEnglish;
+            meaning = meaning + ' ' + nextMeaning;
+            // 跳过下一个索引
+            i++;
+          }
+        }
+      }
       
       // 过滤纯数字的单词（序号不应该被当成单词）
       // 也过滤单个数字或字母的单词
@@ -164,4 +190,42 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   }
   
   return words;
+}
+
+// 判断单词是否可能不完整（被跨行截断）
+function isIncompleteWord(word: string): boolean {
+  if (!word) return false;
+  const trimmed = word.trim().toLowerCase();
+  
+  // 常见的不完整模式
+  const incompletePatterns = [
+    /^into$/,
+    /^sth$/,
+    /^sb$/,
+    /^to$/,
+    /^for$/,
+    /^in$/,
+    /^on$/,
+    /^at$/,
+    /^of$/,
+    /^with$/,
+    /^by$/,
+    /^from$/,
+    /^and$/,
+    /^or$/,
+    /^but$/,
+    /^the$/,
+    /^a$/,
+    /^an$/,
+    /^be$/,
+    /^is$/,
+    /^are$/,
+    /^was$/,
+    /^were$/,
+    /^been$/,
+    /^being$/
+  ];
+  
+  // 如果单词是常见的介词、冠词、动词等，可能是不完整的
+  return incompletePatterns.some(pattern => pattern.test(trimmed));
 }

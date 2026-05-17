@@ -305,10 +305,10 @@ const selectedRelationType = ref('derivative')
 const loadWords = async () => {
   loading.value = true
   try {
-    const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
+    const res = await wordApi.getWordsTree(searchText.value)
     tableData.value = res.data.words
     total.value = res.data.total
-    words.value = res.data.words
+    words.value = flattenTreeData(res.data.words)
   } catch (error) {
     ElMessage.error('加载数据失败')
   } finally {
@@ -481,7 +481,25 @@ const showManualClassification = async (wordId: number) => {
 const loadCurrentWordData = async (wordId: number) => {
   try {
     const res = await wordApi.getWordsTree('')
-    currentWordData.value = findWordInTree(res.data.words, wordId)
+    
+    // 先尝试找作为根节点的情况
+    let foundNode = findWordInTree(res.data.words, wordId)
+    
+    // 如果没找到作为根节点，尝试找作为子节点的情况
+    if (!foundNode) {
+      const allWordsRes = await wordApi.getWords(1, 10000)
+      const wordInfo = allWordsRes.data.words.find(w => w.id === wordId)
+      if (wordInfo) {
+        // 创建一个临时节点，包含单词基本信息，但没有子节点
+        // 这种情况表示单词是某个根词的子节点
+        foundNode = {
+          ...wordInfo,
+          children: []
+        }
+      }
+    }
+    
+    currentWordData.value = foundNode
     
     const allWordsRes = await wordApi.getWords(1, 10000)
     availableWords.value = allWordsRes.data.words.filter(w => w.id !== wordId)
