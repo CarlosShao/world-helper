@@ -305,13 +305,14 @@ async function startServer() {
       return res.json({ words: [], sessionId: null });
     }
     
-    // 获取这个会话期间的错题
+    // 获取会话期间实际产生的错题（排除会话后手动添加的）
     const words = all(`
-      SELECT w.*, ew.error_date FROM words w 
+      SELECT w.*, ew.error_date FROM words w
       JOIN error_words ew ON w.id = ew.word_id
       WHERE ew.error_date >= ? AND ew.error_date <= ?
+      AND ew.error_date <= ?
       ORDER BY ew.error_date DESC
-    `, [lastSession.start_time, lastSession.end_time]);
+    `, [lastSession.start_time, lastSession.end_time, lastSession.end_time]);
     
     res.json({ words, sessionId: lastSession.id });
   });

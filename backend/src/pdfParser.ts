@@ -145,7 +145,10 @@ function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
     '听单词', '默写', '耳边'
   ];
   
-  for (const line of lines) {
+  // 智能合并跨行内容
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
     // 跳过页脚脏数据行
     const isFooter = footerKeywords.some(keyword => line.includes(keyword));
     if (isFooter) {
@@ -155,6 +158,7 @@ function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
     const numMatch = line.match(/^(\d+)$/);
     
     if (numMatch) {
+      // 保存之前的内容
       if (currentIndex !== null && currentContent.length > 0) {
         result.set(currentIndex, [...currentContent]);
       }
@@ -162,10 +166,23 @@ function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
       currentIndex = parseInt(numMatch[1]);
       currentContent = [];
     } else if (currentIndex !== null) {
-      currentContent.push(line);
+      // 检查下一行是否是序号，如果是，说明当前内容结束
+      const nextLine = i + 1 < lines.length ? lines[i + 1] : '';
+      const nextIsNumber = /^\d+$/.test(nextLine.trim());
+      
+      if (nextIsNumber) {
+        // 如果下一行是序号，且当前行不是页脚，才添加
+        if (!footerKeywords.some(keyword => line.includes(keyword))) {
+          currentContent.push(line);
+        }
+      } else {
+        // 下一行不是序号，继续添加（可能是跨行的内容）
+        currentContent.push(line);
+      }
     }
   }
   
+  // 保存最后的内容
   if (currentIndex !== null && currentContent.length > 0) {
     result.set(currentIndex, [...currentContent]);
   }
