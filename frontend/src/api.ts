@@ -96,5 +96,9 @@ export const wordApi = {
   
   deleteWord: (wordId: number) => {
     return api.delete(`/words/${wordId}`)
+  },
+  
+  batchDeleteWords: (wordIds: number[]) => {
+    return api.post('/words/batch-delete', { wordIds })
   }
 }

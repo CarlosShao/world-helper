@@ -204,6 +204,29 @@ async function startServer() {
     }
   });
 
+  // 批量删除单词
+  app.post('/api/words/batch-delete', (req, res) => {
+    const { wordIds } = req.body;
+    
+    if (!Array.isArray(wordIds) || wordIds.length === 0) {
+      return res.status(400).json({ success: false, message: '请选择要删除的单词' });
+    }
+    
+    try {
+      const placeholders = wordIds.map(() => '?').join(',');
+      run(`DELETE FROM word_relations WHERE root_word_id IN (${placeholders}) OR child_word_id IN (${placeholders})`, [...wordIds, ...wordIds]);
+      run(`DELETE FROM error_words WHERE word_id IN (${placeholders})`, wordIds);
+      run(`DELETE FROM observation_words WHERE word_id IN (${placeholders})`, wordIds);
+      run(`DELETE FROM words WHERE id IN (${placeholders})`, wordIds);
+      saveDb();
+      
+      res.json({ success: true, deletedCount: wordIds.length });
+    } catch (error) {
+      console.error('Batch delete error:', error);
+      res.status(500).json({ success: false, message: '批量删除失败' });
+    }
+  });
+
   // 添加到错题集
   app.post('/api/error-words', (req, res) => {
     const { wordId } = req.body;

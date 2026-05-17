@@ -10,6 +10,10 @@
               <el-tag type="info" size="small" style="margin-left: 12px;">共 {{ total }} 个</el-tag>
             </div>
             <div class="header-actions">
+              <el-button type="danger" @click="batchDeleteSelected" :disabled="selectedWords.length === 0" size="small">
+                <el-icon><Delete /></el-icon>
+                批量删除 ({{ selectedWords.length }})
+              </el-button>
               <el-button type="warning" @click="reclassifyWords" :loading="classifying" size="small">
                 <el-icon><Refresh /></el-icon>
                 重新分类
@@ -60,7 +64,9 @@
         row-key="id"
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
         v-loading="loading"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="50" align="center" :selectable="checkSelectable" />
         <el-table-column type="index" label="序号" width="70" align="center" />
         <el-table-column label="英文" min-width="180">
           <template #default="{ row }">
@@ -308,6 +314,47 @@ const currentWordData = ref<any>(null)
 const manualSearchText = ref('')
 const availableWords = ref<any[]>([])
 const selectedRelationType = ref('derivative')
+const selectedWords = ref<any[]>([])
+
+const checkSelectable = (row: any) => {
+  return row.type !== 'group' && row.id && !row.isChild
+}
+
+const handleSelectionChange = (selection: any[]) => {
+  selectedWords.value = selection
+}
+
+const batchDeleteSelected = async () => {
+  if (selectedWords.value.length === 0) {
+    ElMessage.warning('请先选择要删除的单词')
+    return
+  }
+  
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedWords.value.length} 个单词吗？`,
+      '批量删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    loading.value = true
+    const wordIds = selectedWords.value.map(w => w.id)
+    await wordApi.batchDeleteWords(wordIds)
+    ElMessage.success(`成功删除 ${wordIds.length} 个单词`)
+    selectedWords.value = []
+    await loadWords()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('批量删除失败')
+    }
+  } finally {
+    loading.value = false
+  }
+}
 
 const loadWords = async () => {
   loading.value = true
