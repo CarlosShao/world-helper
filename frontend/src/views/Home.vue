@@ -66,7 +66,7 @@
             </div>
             <div class="expand-icon" v-else style="width: 18px;"></div>
             <div class="word-info">
-              <span class="word-text" :class="{ 'root-word': true }">
+              <span class="word-text root-word">
                 {{ allEnglishHidden ? '****' : root.english }}
               </span>
               <el-tag size="small" type="info" class="pos-tag">{{ root.part_of_speech }}</el-tag>
@@ -111,7 +111,7 @@
                 class="child-row"
               >
                 <div class="word-info child-info">
-                  <span class="word-text" :class="{ [`${category.type}-word`]: true }">
+                  <span class="word-text" :class="{ [category.type + '-word']: true }">
                     {{ hiddenEnglish.has(child.id) ? '****' : child.english }}
                   </span>
                   <el-tag size="small" type="info" class="pos-tag">{{ child.part_of_speech }}</el-tag>
@@ -150,7 +150,6 @@
       </div>
     </el-card>
 
-    <!-- 上传对话框 -->
     <el-dialog
       v-model="uploadDialogVisible"
       title="导入单词"
@@ -185,7 +184,7 @@
           <span>{{ selectedFile.name }}</span>
           <el-tag size="small" type="info" style="margin-left: 8px;">
             {{ formatFileSize(selectedFile.size) }}
-          </span>
+          </el-tag>
         </div>
       </div>
 
@@ -200,7 +199,6 @@
       </template>
     </el-dialog>
 
-    <!-- 关联到其他词对话框 -->
     <el-dialog
       v-model="relationDialogVisible"
       title="关联到其他词"
@@ -212,7 +210,7 @@
             <el-option
               v-for="word in rootWords"
               :key="word.id"
-              :label="`${word.english} - ${word.chinese}`"
+              :label="word.english + ' - ' + word.chinese"
               :value="word.id"
             />
           </el-select>
@@ -237,7 +235,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage, ElConfirm } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   UploadFilled, Search, View, Hide, Edit, Upload,
   DocumentAdd, Notebook, Document, RefreshCw,
@@ -326,11 +324,11 @@ const handleImport = async () => {
   importing.value = true
   try {
     const res = await wordApi.importFile(selectedFile.value)
-    ElMessage.success(`成功导入 ${res.data.count} 个单词`)
+    ElMessage.success('成功导入 ' + res.data.count + ' 个单词')
     uploadDialogVisible.value = false
-    
+
     await classifyAllWords()
-    
+
     loadTree()
   } catch (error) {
     ElMessage.error('导入失败，请检查文件格式是否正确')
@@ -343,7 +341,7 @@ const classifyAllWords = async () => {
   classifying.value = true
   try {
     const res = await wordApi.classifyAll()
-    ElMessage.success(`分类完成，共关联 ${res.data.classified} 个单词`)
+    ElMessage.success('分类完成，共关联 ' + res.data.classified + ' 个单词')
   } catch (error) {
     ElMessage.error('分类失败')
   } finally {
@@ -352,15 +350,15 @@ const classifyAllWords = async () => {
 }
 
 const reclassifyWords = async () => {
-  await ElConfirm('确定要重新分类所有单词吗？', '提示', {
+  await ElMessageBox.confirm('确定要重新分类所有单词吗？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消'
   })
-  
+
   classifying.value = true
   try {
     const res = await wordApi.classifyAll(false)
-    ElMessage.success(`重新分类完成，共关联 ${res.data.classified} 个单词`)
+    ElMessage.success('重新分类完成，共关联 ' + res.data.classified + ' 个单词')
     loadTree()
   } catch (error) {
     ElMessage.error('重新分类失败')
@@ -422,11 +420,11 @@ const handleCommand = async (cmd: string, word: any) => {
 }
 
 const setAsRoot = async (word: any) => {
-  await ElConfirm(`确定要将 "${word.english}" 设为主词吗？`, '提示', {
+  await ElMessageBox.confirm('确定要将 "' + word.english + '" 设为主词吗？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消'
   })
-  
+
   try {
     await wordApi.removeWordRelations(word.id)
     ElMessage.success('已设为主词')
@@ -461,11 +459,11 @@ const confirmRelation = async () => {
 }
 
 const removeAllRelations = async (word: any) => {
-  await ElConfirm(`确定要将 "${word.english}" 设为独立词吗？`, '提示', {
+  await ElMessageBox.confirm('确定要将 "' + word.english + '" 设为独立词吗？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消'
   })
-  
+
   try {
     await wordApi.removeWordRelations(word.id)
     ElMessage.success('已设为独立词')
@@ -713,18 +711,6 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-}
-
-:deep(.upload-area .el-upload-dragger) {
-  border-radius: 12px;
-  border: 2px dashed #dcdfe6;
-  transition: all 0.3s ease;
-  padding: 40px 20px;
-}
-
-:deep(.upload-area .el-upload-dragger:hover) {
-  border-color: #667eea;
-  background: #f5f7fa;
 }
 
 @media (max-width: 768px) {
