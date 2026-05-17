@@ -86,21 +86,25 @@
             </template>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="260" align="center">
+        <el-table-column label="操作" width="360" align="center" fixed="right">
           <template #default="{ row }">
             <template v-if="row.type !== 'group' && row.id && !row.isChild">
               <div class="action-buttons-row">
-                <el-button size="mini" @click="toggleChinese(row.id)" :class="hiddenChinese.has(row.id) ? 'btn-show' : 'btn-hide'" :title="hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文'">
-                  {{ hiddenChinese.has(row.id) ? '显中' : '隐中' }}
+                <el-button size="mini" @click="toggleChinese(row.id)" :class="hiddenChinese.has(row.id) ? 'btn-show' : 'btn-hide'">
+                  <el-icon><View /></el-icon>
+                  {{ hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文' }}
                 </el-button>
-                <el-button size="mini" @click="toggleEnglish(row.id)" :class="hiddenEnglish.has(row.id) ? 'btn-show' : 'btn-hide'" :title="hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文'">
-                  {{ hiddenEnglish.has(row.id) ? '显英' : '隐英' }}
+                <el-button size="mini" @click="toggleEnglish(row.id)" :class="hiddenEnglish.has(row.id) ? 'btn-show' : 'btn-hide'">
+                  <el-icon><Hide /></el-icon>
+                  {{ hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文' }}
                 </el-button>
-                <el-button size="mini" type="warning" @click="resetWordClassification(row.id)" title="重新分类">
-                  重分
+                <el-button size="mini" type="warning" @click="resetWordClassification(row.id)">
+                  <el-icon><Refresh /></el-icon>
+                  重新分类
                 </el-button>
-                <el-button size="mini" type="primary" @click="showManualClassification(row.id)" title="手动分类">
-                  手分
+                <el-button size="mini" type="primary" @click="showManualClassification(row.id)">
+                  <el-icon><Edit /></el-icon>
+                  手动分类
                 </el-button>
               </div>
             </template>
@@ -560,8 +564,9 @@ onMounted(() => {
 
 <style scoped>
 .home {
-  max-width: 1200px;
+  max-width: 95%;
   margin: 0 auto;
+  min-width: 1200px;
 }
 
 .word-list-card {
@@ -627,13 +632,13 @@ onMounted(() => {
 
 .action-buttons-row {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   justify-content: center;
   align-items: center;
 }
 
 .action-buttons-row .el-button {
-  padding: 4px 8px;
+  padding: 4px 10px;
   font-size: 12px;
   border-radius: 4px;
 }
