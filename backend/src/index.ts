@@ -384,7 +384,8 @@ async function startServer() {
           type: 'group',
           children: word.derivatives.map((d: any) => ({
             ...d,
-            children: []
+            children: [],
+            relationType: 'derivative'
           }))
         };
         childItems.push(derivativeGroup);
@@ -397,7 +398,8 @@ async function startServer() {
           type: 'group',
           children: word.phrases.map((p: any) => ({
             ...p,
-            children: []
+            children: [],
+            relationType: 'phrase'
           }))
         };
         childItems.push(phraseGroup);

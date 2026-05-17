@@ -10,19 +10,6 @@
               <el-tag type="info" size="small" style="margin-left: 12px;">共 {{ total }} 个</el-tag>
             </div>
             <div class="header-actions">
-              <div class="view-toggle">
-                <span class="toggle-label">视图：</span>
-                <el-radio-group v-model="viewMode" size="small">
-                  <el-radio-button value="list">
-                    <el-icon><List /></el-icon>
-                    <span class="btn-text">列表</span>
-                  </el-radio-button>
-                  <el-radio-button value="tree">
-                    <el-icon><FolderOpened /></el-icon>
-                    <span class="btn-text">树形</span>
-                  </el-radio-button>
-                </el-radio-group>
-              </div>
               <div class="action-buttons">
                 <el-button type="warning" @click="reclassifyWords" :loading="classifying" size="small">
                   <el-icon><Refresh /></el-icon>
@@ -68,60 +55,60 @@
         </div>
       </template>
 
-      <el-table v-if="viewMode === 'list'" :data="words" style="width: 100%" stripe>
+      <el-table 
+        :data="tableData" 
+        style="width: 100%" 
+        stripe
+        row-key="id"
+        :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+      >
         <el-table-column type="index" label="序号" width="70" align="center" />
         <el-table-column label="英文" min-width="180">
           <template #default="{ row }">
-            <span v-if="!hiddenEnglish.has(row.id)" class="word-text">{{ row.english }}</span>
-            <span v-else class="hidden-text">****</span>
+            <template v-if="row.type === 'group'">
+              <el-tag size="small" type="warning">{{ row.title }}</el-tag>
+            </template>
+            <template v-else-if="row.id">
+              <span v-if="!hiddenEnglish.has(row.id)" class="word-text">{{ row.english }}</span>
+              <span v-else class="hidden-text">****</span>
+            </template>
           </template>
         </el-table-column>
         <el-table-column label="词性" width="100" align="left">
           <template #default="{ row }">
-            <el-tag size="small" type="info">{{ row.part_of_speech }}</el-tag>
+            <el-tag v-if="row.part_of_speech && row.type !== 'group'" size="small" type="info">{{ row.part_of_speech }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="中文" min-width="200">
           <template #default="{ row }">
-            <span v-if="!hiddenChinese.has(row.id)">{{ row.chinese }}</span>
-            <span v-else class="hidden-text">****</span>
+            <template v-if="row.type !== 'group' && row.id">
+              <span v-if="!hiddenChinese.has(row.id)">{{ row.chinese }}</span>
+              <span v-else class="hidden-text">****</span>
+            </template>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center">
+        <el-table-column label="关系" width="100" align="center">
           <template #default="{ row }">
-            <el-button size="small" @click="toggleChinese(row.id)" text>
-              {{ hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文' }}
-            </el-button>
-            <el-button size="small" @click="toggleEnglish(row.id)" text>
-              {{ hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文' }}
-            </el-button>
+            <el-tag v-if="row.relationType" size="small" :type="row.relationType === 'derivative' ? 'primary' : 'success'">
+              {{ row.relationType === 'derivative' ? '衍生词' : '短语' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" align="center">
+          <template #default="{ row }">
+            <template v-if="row.type !== 'group' && row.id">
+              <el-button size="small" @click="toggleChinese(row.id)" text>
+                {{ hiddenChinese.has(row.id) ? '显示' : '隐藏' }}中文
+              </el-button>
+              <el-button size="small" @click="toggleEnglish(row.id)" text>
+                {{ hiddenEnglish.has(row.id) ? '显示' : '隐藏' }}英文
+              </el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
-      
-      <el-tree
-        v-else
-        :data="treeData"
-        :props="treeProps"
-        node-key="id"
-        default-expand-all
-        style="width: 100%"
-      >
-        <template #default="{ node, data }">
-          <div class="tree-node-content" v-if="data.id">
-            <span class="word-text" v-if="!hiddenEnglish.has(data.id)">{{ data.english }}</span>
-            <span class="hidden-text" v-else>****</span>
-            <el-tag v-if="data.part_of_speech" size="small" type="info" style="margin-left: 8px">{{ data.part_of_speech }}</el-tag>
-            <span v-if="!hiddenChinese.has(data.id)" style="margin-left: 12px; color: #606266">{{ data.chinese }}</span>
-            <span v-else style="margin-left: 12px; color: #c0c4cc">****</span>
-          </div>
-          <div class="tree-node-label" v-else>
-            <el-tag size="small" type="warning">{{ data.title }}</el-tag>
-          </div>
-        </template>
-      </el-tree>
 
-      <div class="pagination-wrapper" v-if="viewMode === 'list'">
+      <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
@@ -187,12 +174,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { 
   Search, View, Hide, Edit, Upload, 
-  DocumentAdd, Notebook, Document, Refresh, 
-  List, FolderOpened 
+  DocumentAdd, Notebook, Document, Refresh 
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { wordApi, type Word } from '../api'
@@ -201,6 +187,7 @@ const router = useRouter()
 
 const searchText = ref('')
 const words = ref<Word[]>([])
+const tableData = ref<any[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -214,43 +201,32 @@ const hiddenEnglish = ref<Set<number>>(new Set())
 const allChineseHidden = ref(false)
 const allEnglishHidden = ref(false)
 const classifying = ref(false)
-const viewMode = ref<'list' | 'tree'>('tree')
-const treeData = ref<any[]>([])
-const treeProps = {
-  children: 'children',
-  label: (node: any) => {
-    return node.english || node.title || '未知'
-  }
-}
 
 const loadWords = async () => {
-  if (viewMode.value === 'list') {
-    try {
-      const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
-      words.value = res.data.words
-      total.value = res.data.total
-    } catch (error) {
-      ElMessage.error('加载单词失败')
-    }
-  } else {
-    try {
-      const res = await wordApi.getWordsTree(searchText.value)
-      treeData.value = res.data.words
-      total.value = res.data.total
-    } catch (error) {
-      ElMessage.error('加载树形数据失败')
-    }
+  try {
+    const res = await wordApi.getWordsTree(searchText.value)
+    tableData.value = res.data.words
+    total.value = res.data.total
+    words.value = flattenTreeData(res.data.words)
+  } catch (error) {
+    ElMessage.error('加载数据失败')
   }
 }
 
-const loadTreeData = async () => {
-  try {
-    const res = await wordApi.getWordsTree(searchText.value)
-    treeData.value = res.data.words
-    total.value = res.data.total
-  } catch (error) {
-      ElMessage.error('加载树形数据失败')
+const flattenTreeData = (tree: any[]): Word[] => {
+  const result: Word[] = []
+  const flatten = (nodes: any[]) => {
+    for (const node of nodes) {
+      if (node.id && node.type !== 'group') {
+        result.push(node as Word)
+      }
+      if (node.children && node.children.length > 0) {
+        flatten(node.children)
+      }
+    }
   }
+  flatten(tree)
+  return result
 }
 
 const showUploadDialog = () => {
@@ -334,6 +310,19 @@ const toggleAllEnglish = () => {
   }
 }
 
+const toggleAllChineseSimple = () => {
+  allChineseHidden.value = !allChineseHidden.value
+  if (allChineseHidden.value) {
+    tableData.value.forEach(w => {
+      if (w.id && w.type !== 'group') {
+        hiddenChinese.value.add(w.id)
+      }
+    })
+  } else {
+    hiddenChinese.value.clear()
+  }
+}
+
 const goToPractice = () => {
   router.push('/practice')
 }
@@ -352,11 +341,6 @@ const reclassifyWords = async () => {
 }
 
 onMounted(() => {
-  loadWords()
-})
-
-// 监听视图模式变化
-watch(viewMode, () => {
   loadWords()
 })
 </script>
@@ -398,28 +382,7 @@ watch(viewMode, () => {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.view-toggle {
-  display: flex;
-  align-items: center;
   gap: 8px;
-}
-
-.toggle-label {
-  font-size: 14px;
-  color: #606266;
-}
-
-.action-buttons {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-text {
-  margin-left: 4px;
 }
 
 .search-bar {
@@ -437,16 +400,6 @@ watch(viewMode, () => {
 .hidden-text {
   color: #c0c4cc;
   letter-spacing: 2px;
-}
-
-.tree-node-content {
-  display: flex;
-  align-items: center;
-  padding: 4px 0;
-}
-
-.tree-node-label {
-  font-style: italic;
 }
 
 .pagination-wrapper {
@@ -536,17 +489,6 @@ watch(viewMode, () => {
   
   .header-actions {
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  
-  .view-toggle {
-    justify-content: space-between;
-  }
-  
-  .action-buttons {
-    width: 100%;
     justify-content: space-between;
   }
   
@@ -574,10 +516,6 @@ watch(viewMode, () => {
 }
 
 @media (max-width: 480px) {
-  .btn-text {
-    display: none;
-  }
-  
   .word-list-card :deep(.el-button) {
     padding: 5px 8px;
     font-size: 11px;
