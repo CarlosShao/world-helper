@@ -711,8 +711,13 @@ onMounted(() => {
 }
 
 .word-table :deep(.el-table__fixed-right-patch) {
+  background-color: #f7f8fa !important;
   box-shadow: -4px 0 6px rgba(0, 0, 0, 0.08);
   z-index: 10;
+}
+
+.word-table :deep(.el-table__fixed-right .el-table__header-wrapper th) {
+  background-color: #f7f8fa !important;
 }
 
 /* 确保表格内容不会被操作栏挡住 */
