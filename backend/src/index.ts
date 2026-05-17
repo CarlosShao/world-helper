@@ -402,6 +402,9 @@ async function startServer() {
       
       if (child && parent) {
         childWordIds.add(rel.child_word_id);
+        child.relationId = rel.id;
+        child.relationType = rel.relation_type;
+        child.parentId = rel.root_word_id;
         if (rel.relation_type === 'derivative') {
           parent.derivatives.push(child);
         } else {
@@ -429,7 +432,8 @@ async function startServer() {
           children: word.derivatives.map((d: any) => ({
             ...d,
             children: [],
-            relationType: 'derivative'
+            relationType: 'derivative',
+            relationId: d.relationId
           }))
         };
         childItems.push(derivativeGroup);
@@ -443,7 +447,8 @@ async function startServer() {
           children: word.phrases.map((p: any) => ({
             ...p,
             children: [],
-            relationType: 'phrase'
+            relationType: 'phrase',
+            relationId: p.relationId
           }))
         };
         childItems.push(phraseGroup);
@@ -457,7 +462,70 @@ async function startServer() {
       delete word.phrases;
     });
 
-    res.json({ words: rootWords, total: rootWords.length });
+    res.json({ words: rootWords, allWordMap: Object.fromEntries(wordMap) });
+  });
+
+  // 获取单个单词的完整关系信息（包括作为根词的子词）
+  app.get('/api/words/:id/relations', (req, res) => {
+    const wordId = parseInt(req.params.id);
+    
+    // 获取单词信息
+    const word = get('SELECT * FROM words WHERE id = ?', [wordId]);
+    if (!word) {
+      return res.status(404).json({ success: false, message: '单词不存在' });
+    }
+
+    // 获取所有关系
+    const relations = all('SELECT * FROM word_relations');
+    const allWords = all('SELECT * FROM words');
+    
+    const wordMap = new Map<number, any>();
+    allWords.forEach(w => {
+      wordMap.set(w.id, { ...w });
+    });
+    
+    // 找到这个单词的子词
+    const derivatives: any[] = [];
+    const phrases: any[] = [];
+    
+    relations.forEach(rel => {
+      if (rel.root_word_id === wordId) {
+        const child = wordMap.get(rel.child_word_id);
+        if (child) {
+          const childWithRel = { ...child, relationId: rel.id, relationType: rel.relation_type };
+          if (rel.relation_type === 'derivative') {
+            derivatives.push(childWithRel);
+          } else {
+            phrases.push(childWithRel);
+          }
+        }
+      }
+    });
+    
+    // 构建children结构
+    const children: any[] = [];
+    if (derivatives.length > 0) {
+      children.push({
+        id: `deriv-${wordId}`,
+        title: '衍生词',
+        type: 'group',
+        children: derivatives.map(d => ({ ...d, children: [] }))
+      });
+    }
+    if (phrases.length > 0) {
+      children.push({
+        id: `phrase-${wordId}`,
+        title: '短语',
+        type: 'group',
+        children: phrases.map(p => ({ ...p, children: [] }))
+      });
+    }
+
+    res.json({
+      ...word,
+      hasChildren: children.length > 0,
+      children
+    });
   });
 
   // 添加单词关系

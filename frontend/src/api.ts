@@ -25,6 +25,10 @@ export const wordApi = {
   getWordsTree: (search: string = '') => {
     return api.get('/words/tree', { params: { search } })
   },
+
+  getWordRelations: (wordId: number) => {
+    return api.get(`/words/${wordId}/relations`)
+  },
   
   getRootWords: () => {
     return api.get('/words/roots')

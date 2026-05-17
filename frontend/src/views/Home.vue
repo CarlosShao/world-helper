@@ -566,22 +566,8 @@ const showManualClassification = async (wordId: number) => {
 
 const loadCurrentWordData = async (wordId: number) => {
   try {
-    const res = await wordApi.getWordsTree('')
-    
-    let foundNode = findWordInTree(res.data.words, wordId)
-    
-    if (!foundNode) {
-      const allWordsRes = await wordApi.getWords(1, 10000)
-      const wordInfo = allWordsRes.data.words.find(w => w.id === wordId)
-      if (wordInfo) {
-        foundNode = {
-          ...wordInfo,
-          children: []
-        }
-      }
-    }
-    
-    currentWordData.value = foundNode
+    const res = await wordApi.getWordRelations(wordId)
+    currentWordData.value = res.data
     
     const allWordsRes = await wordApi.getWords(1, 10000)
     availableWords.value = allWordsRes.data.words.filter(w => w.id !== wordId)
