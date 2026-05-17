@@ -27,15 +27,19 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   const englishMap = new Map<number, string[]>();
   const meaningMap = new Map<number, string[]>();
   
-  // 模式：WordMeaning -> 英语 -> WordMeaning -> 释义 -> 页面信息 -> WordMeaning -> ...
+  // 模式：WordMeaning -> 英语 -> WordMeaning -> 释义 -> WordMeaning -> ...
+  // 或者：WordMeaning -> 英语 -> WordMeaning -> 释义（结束）
   // 所以索引为偶数的WordMeaning后面是英语，奇数的后面是释义
-  for (let i = 0; i < wordMeaningPositions.length - 1; i++) {
+  for (let i = 0; i < wordMeaningPositions.length; i++) {
     const start = wordMeaningPositions[i] + 1;
-    const end = wordMeaningPositions[i + 1];
+    // 如果是最后一个WordMeaning，就取到文件末尾
+    const end = i < wordMeaningPositions.length - 1 ? wordMeaningPositions[i + 1] : lines.length;
     const sectionLines = lines.slice(start, end);
     
     // 判断是英语部分还是释义部分
     const isEnglish = i % 2 === 0;
+    
+    console.log(`处理区块 ${i} (${isEnglish ? '英语' : '释义'}): 行 ${start}~${end}`);
     
     // 解析这部分的内容
     const sectionMap = parseNumberedSectionWithArray(sectionLines);
@@ -115,7 +119,10 @@ function cleanFooterData(text: string): string {
     /\d+\/\d+\s*页/g,
     /背单词.*App/g,
     /扫码.*二维码/g,
-    /单词不用背.*自然会/g
+    /单词不用背.*自然会/g,
+    /近日已学.*复习/g,
+    /扫码听单词/g,
+    /纸上默写.*耳边复习/g
   ];
   
   let result = text;
@@ -134,7 +141,8 @@ function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
   // 页脚脏数据关键词
   const footerKeywords = [
     '页', '词表', '二维码', '下载', '已学', '复习', '完成',
-    '共', '背单词', 'App', '自然会', '扫码', '打卡'
+    '共', '背单词', 'App', '自然会', '扫码', '打卡', '近日',
+    '听单词', '默写', '耳边'
   ];
   
   for (const line of lines) {
