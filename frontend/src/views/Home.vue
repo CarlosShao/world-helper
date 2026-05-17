@@ -86,7 +86,7 @@
             </template>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="360" align="center" fixed="right">
+        <el-table-column label="操作" width="450" align="center" fixed="right">
           <template #default="{ row }">
             <template v-if="row.type !== 'group' && row.id && !row.isChild">
               <div class="action-buttons-row">
@@ -105,6 +105,10 @@
                 <el-button size="mini" type="primary" @click="showManualClassification(row.id)">
                   <el-icon><Edit /></el-icon>
                   手动分类
+                </el-button>
+                <el-button size="mini" type="danger" @click="deleteWord(row)">
+                  <el-icon><Delete /></el-icon>
+                  删除
                 </el-button>
               </div>
             </template>
@@ -269,10 +273,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Search, View, Hide, Edit, Upload, 
-  DocumentAdd, Notebook, Document, Refresh 
+  DocumentAdd, Notebook, Document, Refresh,
+  Delete
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { wordApi, type Word } from '../api'
@@ -477,6 +482,30 @@ const resetWordClassification = async (wordId: number) => {
     await loadWords()
   } catch (error) {
     ElMessage.error('重置分类失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const deleteWord = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除单词 "${row.english}" 吗？`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    loading.value = true
+    await wordApi.deleteWord(row.id)
+    ElMessage.success('删除成功')
+    await loadWords()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败')
+    }
   } finally {
     loading.value = false
   }

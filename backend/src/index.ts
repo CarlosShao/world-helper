@@ -166,12 +166,12 @@ async function startServer() {
 
     if (search) {
       const searchTerm = `%${search}%`;
-      words = all('SELECT * FROM words WHERE english LIKE ? OR chinese LIKE ? ORDER BY id LIMIT ? OFFSET ?', 
+      words = all('SELECT * FROM words WHERE english LIKE ? OR chinese LIKE ? ORDER BY english LIMIT ? OFFSET ?', 
                   [searchTerm, searchTerm, pageSize, offset]);
       total = get('SELECT COUNT(*) as total FROM words WHERE english LIKE ? OR chinese LIKE ?', 
                   [searchTerm, searchTerm])?.total || 0;
     } else {
-      words = all('SELECT * FROM words ORDER BY id LIMIT ? OFFSET ?', [pageSize, offset]);
+      words = all('SELECT * FROM words ORDER BY english LIMIT ? OFFSET ?', [pageSize, offset]);
       total = get('SELECT COUNT(*) as total FROM words')?.total || 0;
     }
 
@@ -181,6 +181,27 @@ async function startServer() {
       page,
       pageSize
     });
+  });
+
+  // 删除单词
+  app.delete('/api/words/:id', (req, res) => {
+    const wordId = parseInt(req.params.id);
+    
+    try {
+      // 先删除与该单词相关的所有关系
+      run('DELETE FROM word_relations WHERE root_word_id = ? OR child_word_id = ?', [wordId, wordId]);
+      // 从错题集和观察室删除
+      run('DELETE FROM error_words WHERE word_id = ?', [wordId]);
+      run('DELETE FROM observation_words WHERE word_id = ?', [wordId]);
+      // 删除单词
+      run('DELETE FROM words WHERE id = ?', [wordId]);
+      saveDb();
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete word error:', error);
+      res.status(500).json({ success: false, message: '删除失败' });
+    }
   });
 
   // 添加到错题集

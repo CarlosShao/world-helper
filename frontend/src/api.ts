@@ -92,5 +92,9 @@ export const wordApi = {
   
   saveSetting: (key: string, value: any) => {
     return api.post(`/settings/${key}`, { value })
+  },
+  
+  deleteWord: (wordId: number) => {
+    return api.delete(`/words/${wordId}`)
   }
 }
