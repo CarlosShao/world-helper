@@ -71,7 +71,7 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
     }
     
     const english = englishParts.join(' ').trim();
-    const meaning = meaningParts.join(' ').trim();
+    let meaning = meaningParts.join(' ').trim();
     
     console.log(`序号${i}: 英语="${english}"，释义="${meaning}"`);
     
@@ -79,6 +79,9 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
     if (/^\d+$/.test(english)) {
       continue;
     }
+    
+    // 清理页脚脏数据（可能和释义在同一行）
+    meaning = cleanFooterData(meaning);
     
     let part_of_speech = '';
     let chinese = meaning;
@@ -88,6 +91,9 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
       part_of_speech = posMatch[1].trim();
       chinese = posMatch[2].trim();
     }
+    
+    // 再次清理中文释义中的脏数据
+    chinese = cleanFooterData(chinese);
     
     words.push({
       english,
@@ -100,14 +106,41 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   return words;
 }
 
+function cleanFooterData(text: string): string {
+  // 页脚脏数据模式
+  const footerPatterns = [
+    /全部已学.*复习完成.*共.*词.*\/.*页/g,
+    /已学.*复习完成/g,
+    /共\s*\d+\s*词/g,
+    /\d+\/\d+\s*页/g,
+    /背单词.*App/g,
+    /扫码.*二维码/g,
+    /单词不用背.*自然会/g
+  ];
+  
+  let result = text;
+  for (const pattern of footerPatterns) {
+    result = result.replace(pattern, '').trim();
+  }
+  
+  return result;
+}
+
 function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
   const result = new Map<number, string[]>();
   let currentIndex: number | null = null;
   let currentContent: string[] = [];
   
+  // 页脚脏数据关键词
+  const footerKeywords = [
+    '页', '词表', '二维码', '下载', '已学', '复习', '完成',
+    '共', '背单词', 'App', '自然会', '扫码', '打卡'
+  ];
+  
   for (const line of lines) {
-    // 跳过页面信息行（包含"页"、"词表"等）
-    if (line.includes('页') || line.includes('词表') || line.includes('二维码') || line.includes('下载')) {
+    // 跳过页脚脏数据行
+    const isFooter = footerKeywords.some(keyword => line.includes(keyword));
+    if (isFooter) {
       continue;
     }
     
