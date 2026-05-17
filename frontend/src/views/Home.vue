@@ -589,9 +589,9 @@ const findWordInTree = (tree: any[], wordId: number): any => {
   return null
 }
 
-const addRelation = async (rootWordId: number) => {
+const addRelation = async (childWordId: number) => {
   try {
-    await wordApi.addRelation(rootWordId, currentWordId.value, selectedRelationType.value)
+    await wordApi.addRelation(currentWordId.value, childWordId, selectedRelationType.value)
     ElMessage.success('添加成功')
     await loadCurrentWordData(currentWordId.value)
     loadWords()
