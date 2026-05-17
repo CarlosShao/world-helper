@@ -115,14 +115,15 @@ function cleanFooterData(text: string): string {
   const footerPatterns = [
     /全部已学.*复习完成.*共.*词.*\/.*页/g,
     /已学.*复习完成/g,
-    /共\s*\d+\s*词/g,
+    /共\s*\d+\s*词\s*\d+\/\d+\s*页/g,
     /\d+\/\d+\s*页/g,
     /背单词.*App/g,
     /扫码.*二维码/g,
     /单词不用背.*自然会/g,
     /近日已学.*复习/g,
     /扫码听单词/g,
-    /纸上默写.*耳边复习/g
+    /纸上默写.*耳边复习/g,
+    /在学配套词书/g
   ];
   
   let result = text;
@@ -133,25 +134,34 @@ function cleanFooterData(text: string): string {
   return result;
 }
 
+function isFooterLine(line: string): boolean {
+  // 更精确的页脚检测
+  const footerPatterns = [
+    /^共\s*\d+\s*词.*\/.*页/,        // 共 X 词 X/X 页
+    /^扫码听单词/,                     // 扫码听单词
+    /^纸上默写.*耳边复习/,             // 纸上默写，耳边复习
+    /^近日已学.*复习/,                // 近日已学·复习
+    /^背单词.*App/,                   // 背单词 App
+    /^下载\s*App/,                    // 下载 App
+    /^在学配套词书/,                   // 在学配套词书
+    /^扫码.*二维码/,                   // 扫码二维码
+    /^单词不用背.*自然会/             // 单词不用背，自然会
+  ];
+  
+  return footerPatterns.some(pattern => pattern.test(line));
+}
+
 function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
   const result = new Map<number, string[]>();
   let currentIndex: number | null = null;
   let currentContent: string[] = [];
   
-  // 页脚脏数据关键词
-  const footerKeywords = [
-    '页', '词表', '二维码', '下载', '已学', '复习', '完成',
-    '共', '背单词', 'App', '自然会', '扫码', '打卡', '近日',
-    '听单词', '默写', '耳边'
-  ];
-  
   // 智能合并跨行内容
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
-    // 跳过页脚脏数据行
-    const isFooter = footerKeywords.some(keyword => line.includes(keyword));
-    if (isFooter) {
+    // 跳过页脚脏数据行（使用更精确的检测）
+    if (isFooterLine(line)) {
       continue;
     }
     
@@ -171,8 +181,8 @@ function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
       const nextIsNumber = /^\d+$/.test(nextLine.trim());
       
       if (nextIsNumber) {
-        // 如果下一行是序号，且当前行不是页脚，才添加
-        if (!footerKeywords.some(keyword => line.includes(keyword))) {
+        // 如果下一行是序号，检查当前行是否是页脚
+        if (!isFooterLine(line)) {
           currentContent.push(line);
         }
       } else {

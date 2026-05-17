@@ -71,25 +71,18 @@ async function startServer() {
       const filePath = req.file.path;
       const words = await parsePdf(filePath);
 
-      // 批量操作：清空现有单词 + 插入新单词
-      const operations: Array<{ sql: string; params?: any[] }> = [
-        { sql: 'DELETE FROM word_relations' },
-        { sql: 'DELETE FROM words' }
-      ];
+      // 清空现有单词
+      run('DELETE FROM word_relations');
+      run('DELETE FROM words');
       
+      // 逐个插入单词（逐个插入更可靠）
       for (const word of words) {
-        operations.push({
-          sql: 'INSERT INTO words (english, part_of_speech, chinese, is_classified) VALUES (?, ?, ?, 0)',
-          params: [word.english, word.part_of_speech, word.chinese]
-        });
+        run('INSERT INTO words (english, part_of_speech, chinese, is_classified) VALUES (?, ?, ?, 0)',
+            [word.english, word.part_of_speech, word.chinese]);
       }
       
-      operations.push({
-        sql: 'INSERT INTO import_files (filename) VALUES (?)',
-        params: [req.file.originalname]
-      });
-
-      batchRun(operations);
+      run('INSERT INTO import_files (filename) VALUES (?)', [req.file.originalname]);
+      saveDb();
 
       // 后台触发自动分类
       setTimeout(() => {
