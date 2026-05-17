@@ -19,47 +19,67 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   console.log(`找到 ${wordMeaningPositions.length} 个WordMeaning标记`);
   
   if (wordMeaningPositions.length < 2) {
-    console.log('WordMeaning标记太少，无法解析');
+    console.log('WordMeaning标记太少');
     return [];
   }
   
-  // 提取第一部分：英语词汇 (第一个WordMeaning之后，第二个WordMeaning之前)
-  const englishStart = wordMeaningPositions[0] + 1;
-  const englishEnd = wordMeaningPositions[1];
-  const englishLines = lines.slice(englishStart, englishEnd);
+  // 收集所有英语词汇和释义
+  const englishMap = new Map<number, string[]>();
+  const meaningMap = new Map<number, string[]>();
   
-  console.log(`英语部分: ${englishStart}-${englishEnd} (${englishLines.length} 行)`);
+  // 模式：WordMeaning -> 英语 -> WordMeaning -> 释义 -> 页面信息 -> WordMeaning -> ...
+  // 所以索引为偶数的WordMeaning后面是英语，奇数的后面是释义
+  for (let i = 0; i < wordMeaningPositions.length - 1; i++) {
+    const start = wordMeaningPositions[i] + 1;
+    const end = wordMeaningPositions[i + 1];
+    const sectionLines = lines.slice(start, end);
+    
+    // 判断是英语部分还是释义部分
+    const isEnglish = i % 2 === 0;
+    
+    // 解析这部分的内容
+    const sectionMap = parseNumberedSectionWithArray(sectionLines);
+    
+    // 合并到全局Map
+    sectionMap.forEach((content, index) => {
+      if (isEnglish) {
+        if (!englishMap.has(index)) {
+          englishMap.set(index, []);
+        }
+        englishMap.get(index)!.push(...content);
+      } else {
+        if (!meaningMap.has(index)) {
+          meaningMap.set(index, []);
+        }
+        meaningMap.get(index)!.push(...content);
+      }
+    });
+  }
   
-  // 提取第二部分：释义 (第二个WordMeaning之后，第三个WordMeaning之前)
-  const meaningStart = wordMeaningPositions[1] + 1;
-  const meaningEnd = wordMeaningPositions.length > 2 ? wordMeaningPositions[2] : lines.length;
-  const meaningLines = lines.slice(meaningStart, meaningEnd);
-  
-  console.log(`释义部分: ${meaningStart}-${meaningEnd} (${meaningLines.length} 行)`);
-  
-  // 解析英语部分
-  const englishMap = parseNumberedSection(englishLines);
-  console.log(`解析出 ${englishMap.size} 个英语词汇`);
-  
-  // 解析释义部分
-  const meaningMap = parseNumberedSection(meaningLines);
-  console.log(`解析出 ${meaningMap.size} 个释义`);
+  console.log(`解析出 ${englishMap.size} 个英语词汇，${meaningMap.size} 个释义`);
   
   // 合并结果
   const words: Array<{ english: string; part_of_speech: string; chinese: string }> = [];
   const maxIndex = Math.max(...Array.from(englishMap.keys()));
   
   for (let i = 1; i <= maxIndex; i++) {
-    const english = englishMap.get(i);
-    const meaning = meaningMap.get(i);
+    const englishParts = englishMap.get(i);
+    const meaningParts = meaningMap.get(i);
     
-    if (!english || !meaning) {
+    if (!englishParts || !meaningParts) {
       continue;
     }
     
+    const english = englishParts.join(' ').trim();
+    const meaning = meaningParts.join(' ').trim();
+    
     console.log(`序号${i}: 英语="${english}"，释义="${meaning}"`);
     
-    // 解析词性
+    // 过滤纯数字
+    if (/^\d+$/.test(english)) {
+      continue;
+    }
+    
     let part_of_speech = '';
     let chinese = meaning;
     
@@ -80,32 +100,33 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   return words;
 }
 
-function parseNumberedSection(lines: string[]): Map<number, string> {
-  const result = new Map<number, string>();
+function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
+  const result = new Map<number, string[]>();
   let currentIndex: number | null = null;
   let currentContent: string[] = [];
   
   for (const line of lines) {
+    // 跳过页面信息行（包含"页"、"词表"等）
+    if (line.includes('页') || line.includes('词表') || line.includes('二维码') || line.includes('下载')) {
+      continue;
+    }
+    
     const numMatch = line.match(/^(\d+)$/);
     
     if (numMatch) {
-      // 遇到新的序号
       if (currentIndex !== null && currentContent.length > 0) {
-        // 保存上一个序号的内容
-        result.set(currentIndex, currentContent.join(' '));
+        result.set(currentIndex, [...currentContent]);
       }
       
       currentIndex = parseInt(numMatch[1]);
       currentContent = [];
     } else if (currentIndex !== null) {
-      // 收集当前序号的内容
       currentContent.push(line);
     }
   }
   
-  // 保存最后一个
   if (currentIndex !== null && currentContent.length > 0) {
-    result.set(currentIndex, currentContent.join(' '));
+    result.set(currentIndex, [...currentContent]);
   }
   
   return result;
