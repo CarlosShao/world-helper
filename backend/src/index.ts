@@ -73,12 +73,13 @@ async function startServer() {
 
       // 批量操作：清空现有单词 + 插入新单词
       const operations: Array<{ sql: string; params?: any[] }> = [
+        { sql: 'DELETE FROM word_relations' },
         { sql: 'DELETE FROM words' }
       ];
       
       for (const word of words) {
         operations.push({
-          sql: 'INSERT INTO words (english, part_of_speech, chinese) VALUES (?, ?, ?)',
+          sql: 'INSERT INTO words (english, part_of_speech, chinese, is_classified) VALUES (?, ?, ?, 0)',
           params: [word.english, word.part_of_speech, word.chinese]
         });
       }
@@ -89,6 +90,62 @@ async function startServer() {
       });
 
       batchRun(operations);
+
+      // 后台触发自动分类
+      setTimeout(() => {
+        try {
+          const allWords = all('SELECT * FROM words');
+          const rules = all('SELECT * FROM classification_rules WHERE active = 1 ORDER BY priority DESC');
+          
+          const wordIndex = new Map<string, number>();
+          allWords.forEach(w => {
+            wordIndex.set(w.english.toLowerCase(), w.id);
+          });
+
+          const processedIds: number[] = [];
+          for (const word of allWords) {
+            const english = word.english.toLowerCase().trim();
+            let wasClassified = false;
+            
+            if (english.includes(' ')) {
+              const coreWord = extractCoreWord(english, wordIndex);
+              if (coreWord && coreWord !== word.id) {
+                const existing = get('SELECT * FROM word_relations WHERE root_word_id = ? AND child_word_id = ? AND relation_type = ?',
+                                  [coreWord, word.id, 'phrase']);
+                if (!existing) {
+                  run('INSERT INTO word_relations (root_word_id, child_word_id, relation_type) VALUES (?, ?, ?)',
+                      [coreWord, word.id, 'phrase']);
+                  wasClassified = true;
+                }
+              }
+            } else {
+              const rootWord = findRootWord(english, wordIndex, rules);
+              if (rootWord && rootWord !== word.id) {
+                const existing = get('SELECT * FROM word_relations WHERE root_word_id = ? AND child_word_id = ? AND relation_type = ?',
+                                  [rootWord, word.id, 'derivative']);
+                if (!existing) {
+                  run('INSERT INTO word_relations (root_word_id, child_word_id, relation_type) VALUES (?, ?, ?)',
+                      [rootWord, word.id, 'derivative']);
+                  wasClassified = true;
+                }
+              }
+            }
+            
+            if (wasClassified) {
+              processedIds.push(word.id);
+            }
+          }
+          
+          if (processedIds.length > 0) {
+            const placeholders = processedIds.map(() => '?').join(',');
+            run(`UPDATE words SET is_classified = 1 WHERE id IN (${placeholders})`, processedIds);
+          }
+          
+          saveDb();
+        } catch (e) {
+          console.error('Auto classification failed:', e);
+        }
+      }, 500);
 
       res.json({ success: true, count: words.length, words });
     } catch (error) {
@@ -369,63 +426,79 @@ async function startServer() {
 
   // 重新分类所有单词
   app.post('/api/classify/all', (req, res) => {
-    const { keepManual = false } = req.body;
+    const { keepManual = false, incremental = false } = req.body;
 
     try {
       // 如果不保留手动调整，先清空所有关系
       if (!keepManual) {
         run('DELETE FROM word_relations');
+        run('UPDATE words SET is_classified = 0');
       }
 
-      // 获取所有单词
-      const words = all('SELECT * FROM words');
+      // 获取需要分类的单词
+      let words;
+      if (incremental) {
+        words = all('SELECT * FROM words WHERE is_classified = 0');
+      } else {
+        words = all('SELECT * FROM words');
+      }
+      
       if (words.length === 0) {
         return res.json({ success: true, classified: 0 });
       }
 
-      // 获取分类规则
+      // 获取所有单词用于建立索引
+      const allWords = all('SELECT * FROM words');
       const rules = all('SELECT * FROM classification_rules WHERE active = 1 ORDER BY priority DESC');
 
       // 建立单词索引
       const wordIndex = new Map<string, number>();
-      words.forEach(w => {
+      allWords.forEach(w => {
         wordIndex.set(w.english.toLowerCase(), w.id);
       });
 
       // 智能分类算法
       let classifiedCount = 0;
+      const processedIds: number[] = [];
 
       for (const word of words) {
         const english = word.english.toLowerCase().trim();
+        let wasClassified = false;
         
         // 判断是否是短语（包含空格）
         if (english.includes(' ')) {
-          // 尝试找到核心词
           const coreWord = extractCoreWord(english, wordIndex);
           if (coreWord && coreWord !== word.id) {
-            // 检查是否已存在关系
             const existing = get('SELECT * FROM word_relations WHERE root_word_id = ? AND child_word_id = ? AND relation_type = ?',
                               [coreWord, word.id, 'phrase']);
             if (!existing) {
               run('INSERT INTO word_relations (root_word_id, child_word_id, relation_type) VALUES (?, ?, ?)',
                   [coreWord, word.id, 'phrase']);
+              wasClassified = true;
               classifiedCount++;
             }
           }
         } else {
-          // 尝试匹配词根
           const rootWord = findRootWord(english, wordIndex, rules);
           if (rootWord && rootWord !== word.id) {
-            // 检查是否已存在关系
             const existing = get('SELECT * FROM word_relations WHERE root_word_id = ? AND child_word_id = ? AND relation_type = ?',
                               [rootWord, word.id, 'derivative']);
             if (!existing) {
               run('INSERT INTO word_relations (root_word_id, child_word_id, relation_type) VALUES (?, ?, ?)',
                   [rootWord, word.id, 'derivative']);
+              wasClassified = true;
               classifiedCount++;
             }
           }
         }
+
+        processedIds.push(word.id);
+      }
+
+      // 标记已分类的单词
+      if (processedIds.length > 0) {
+        const placeholders = processedIds.map(() => '?').join(',');
+        run(`UPDATE words SET is_classified = 1 WHERE id IN (${placeholders})`, processedIds);
       }
 
       saveDb();
@@ -451,9 +524,27 @@ async function startServer() {
     res.json({ words: roots });
   });
 
+  // 执行数据库迁移
+  migrateDb();
+
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
+}
+
+// 数据库迁移：为现有数据库添加 is_classified 字段
+function migrateDb() {
+  try {
+    const columns = all("PRAGMA table_info(words)");
+    const hasIsClassified = columns.some((col: any) => col.name === 'is_classified');
+    if (!hasIsClassified) {
+      run('ALTER TABLE words ADD COLUMN is_classified INTEGER DEFAULT 0');
+      saveDb();
+      console.log('Database migrated: added is_classified column');
+    }
+  } catch (e) {
+    console.error('Migration error:', e);
+  }
 }
 
 // 从短语中提取核心词

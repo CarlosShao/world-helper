@@ -10,22 +10,29 @@
               <el-tag type="info" size="small" style="margin-left: 12px;">共 {{ total }} 个</el-tag>
             </div>
             <div class="header-actions">
-              <el-radio-group v-model="viewMode" size="small">
-                <el-radio-button value="list">
-                  <el-icon><List /></el-icon>
-                </el-radio-button>
-                <el-radio-button value="tree">
-                  <el-icon><FolderOpened /></el-icon>
-                </el-radio-button>
-              </el-radio-group>
-              <el-button type="warning" @click="reclassifyWords" :loading="classifying">
-                <el-icon><Refresh /></el-icon>
-                重新分类
-              </el-button>
-              <el-button type="primary" @click="showUploadDialog">
-                <el-icon><Upload /></el-icon>
-                导入
-              </el-button>
+              <div class="view-toggle">
+                <span class="toggle-label">视图：</span>
+                <el-radio-group v-model="viewMode" size="small">
+                  <el-radio-button value="list">
+                    <el-icon><List /></el-icon>
+                    <span class="btn-text">列表</span>
+                  </el-radio-button>
+                  <el-radio-button value="tree">
+                    <el-icon><FolderOpened /></el-icon>
+                    <span class="btn-text">树形</span>
+                  </el-radio-button>
+                </el-radio-group>
+              </div>
+              <div class="action-buttons">
+                <el-button type="warning" @click="reclassifyWords" :loading="classifying" size="small">
+                  <el-icon><Refresh /></el-icon>
+                  重新分类
+                </el-button>
+                <el-button type="primary" @click="showUploadDialog" size="small">
+                  <el-icon><Upload /></el-icon>
+                  导入
+                </el-button>
+              </div>
             </div>
           </div>
           <div class="search-bar">
@@ -207,7 +214,7 @@ const hiddenEnglish = ref<Set<number>>(new Set())
 const allChineseHidden = ref(false)
 const allEnglishHidden = ref(false)
 const classifying = ref(false)
-const viewMode = ref<'list' | 'tree'>('list')
+const viewMode = ref<'list' | 'tree'>('tree')
 const treeData = ref<any[]>([])
 const treeProps = {
   children: 'children',
@@ -386,6 +393,33 @@ watch(viewMode, () => {
   color: #667eea;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-label {
+  font-size: 14px;
+  color: #606266;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-text {
+  margin-left: 4px;
+}
+
 .search-bar {
   display: flex;
   align-items: center;
@@ -488,8 +522,30 @@ watch(viewMode, () => {
     align-items: flex-start;
   }
   
+  .header-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
   .header-left {
     width: 100%;
+  }
+  
+  .header-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .view-toggle {
+    justify-content: space-between;
+  }
+  
+  .action-buttons {
+    width: 100%;
+    justify-content: space-between;
   }
   
   .search-bar {
@@ -516,6 +572,10 @@ watch(viewMode, () => {
 }
 
 @media (max-width: 480px) {
+  .btn-text {
+    display: none;
+  }
+  
   .word-list-card :deep(.el-button) {
     padding: 5px 8px;
     font-size: 11px;
