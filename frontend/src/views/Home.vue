@@ -129,10 +129,12 @@
                       更多 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
                     </el-button>
                     <template #dropdown>
-                      <el-dropdown-item command="setRoot">设为主词</el-dropdown-item>
-                      <el-dropdown-item command="addToOther">关联到其他词</el-dropdown-item>
-                      <el-dropdown-item command="removeRelations">设为独立词</el-dropdown-item>
-                    </el-dropdown-menu>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="setRoot">设为主词</el-dropdown-item>
+                        <el-dropdown-item command="addToOther">关联到其他词</el-dropdown-item>
+                        <el-dropdown-item command="removeRelations">设为独立词</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
                   </el-dropdown>
                 </div>
               </div>
