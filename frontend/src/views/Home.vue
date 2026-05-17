@@ -57,70 +57,73 @@
         </div>
       </template>
 
-      <el-table 
-        :data="tableData" 
-        style="width: 100%" 
-        stripe
-        row-key="id"
-        :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
-        v-loading="loading"
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="50" align="center" :selectable="checkSelectable" />
-        <el-table-column type="index" label="序号" width="70" align="center" />
-        <el-table-column label="英文" min-width="180">
-          <template #default="{ row }">
-            <template v-if="row.type === 'group'">
-              <el-tag size="small" type="warning">{{ row.title }}</el-tag>
+      <div class="table-wrapper">
+        <el-table 
+          :data="tableData" 
+          class="word-table"
+          style="width: 100%" 
+          stripe
+          row-key="id"
+          :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+          v-loading="loading"
+          @selection-change="handleSelectionChange"
+        >
+          <el-table-column type="selection" width="50" align="center" :selectable="checkSelectable" />
+          <el-table-column type="index" label="序号" width="70" align="center" />
+          <el-table-column label="英文" min-width="180">
+            <template #default="{ row }">
+              <template v-if="row.type === 'group'">
+                <el-tag size="small" type="warning">{{ row.title }}</el-tag>
+              </template>
+              <template v-else-if="row.id">
+                <span v-if="!hiddenEnglish.has(row.id)" class="word-text">{{ row.english }}</span>
+                <span v-else class="hidden-text">****</span>
+              </template>
             </template>
-            <template v-else-if="row.id">
-              <span v-if="!hiddenEnglish.has(row.id)" class="word-text">{{ row.english }}</span>
-              <span v-else class="hidden-text">****</span>
+          </el-table-column>
+          <el-table-column label="词性" width="100" align="left">
+            <template #default="{ row }">
+              <el-tag v-if="row.part_of_speech && row.type !== 'group'" size="small" type="info">{{ row.part_of_speech }}</el-tag>
             </template>
-          </template>
-        </el-table-column>
-        <el-table-column label="词性" width="100" align="left">
-          <template #default="{ row }">
-            <el-tag v-if="row.part_of_speech && row.type !== 'group'" size="small" type="info">{{ row.part_of_speech }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="中文" min-width="200">
-          <template #default="{ row }">
-            <template v-if="row.type !== 'group' && row.id">
-              <span v-if="!hiddenChinese.has(row.id)">{{ row.chinese }}</span>
-              <span v-else class="hidden-text">****</span>
+          </el-table-column>
+          <el-table-column label="中文" min-width="200">
+            <template #default="{ row }">
+              <template v-if="row.type !== 'group' && row.id">
+                <span v-if="!hiddenChinese.has(row.id)">{{ row.chinese }}</span>
+                <span v-else class="hidden-text">****</span>
+              </template>
             </template>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="450" align="center" fixed="right">
-          <template #default="{ row }">
-            <template v-if="row.type !== 'group' && row.id && !row.isChild">
-              <div class="action-buttons-row">
-                <el-button size="mini" @click="toggleChinese(row.id)" :class="hiddenChinese.has(row.id) ? 'btn-show' : 'btn-hide'">
-                  <el-icon><View /></el-icon>
-                  {{ hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文' }}
-                </el-button>
-                <el-button size="mini" @click="toggleEnglish(row.id)" :class="hiddenEnglish.has(row.id) ? 'btn-show' : 'btn-hide'">
-                  <el-icon><Hide /></el-icon>
-                  {{ hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文' }}
-                </el-button>
-                <el-button size="mini" type="warning" @click="resetWordClassification(row.id)">
-                  <el-icon><Refresh /></el-icon>
-                  重新分类
-                </el-button>
-                <el-button size="mini" type="primary" @click="showManualClassification(row.id)">
-                  <el-icon><Edit /></el-icon>
-                  手动分类
-                </el-button>
-                <el-button size="mini" type="danger" @click="deleteWord(row)">
-                  <el-icon><Delete /></el-icon>
-                  删除
-                </el-button>
-              </div>
+          </el-table-column>
+          <el-table-column label="操作" width="470" align="center" fixed="right">
+            <template #default="{ row }">
+              <template v-if="row.type !== 'group' && row.id && !row.isChild">
+                <div class="action-buttons-row">
+                  <el-button size="mini" @click="toggleChinese(row.id)" :class="hiddenChinese.has(row.id) ? 'btn-show' : 'btn-hide'">
+                    <el-icon><View /></el-icon>
+                    {{ hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文' }}
+                  </el-button>
+                  <el-button size="mini" @click="toggleEnglish(row.id)" :class="hiddenEnglish.has(row.id) ? 'btn-show' : 'btn-hide'">
+                    <el-icon><Hide /></el-icon>
+                    {{ hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文' }}
+                  </el-button>
+                  <el-button size="mini" type="warning" @click="resetWordClassification(row.id)">
+                    <el-icon><Refresh /></el-icon>
+                    重新分类
+                  </el-button>
+                  <el-button size="mini" type="primary" @click="showManualClassification(row.id)">
+                    <el-icon><Edit /></el-icon>
+                    手动分类
+                  </el-button>
+                  <el-button size="mini" type="danger" @click="deleteWord(row)">
+                    <el-icon><Delete /></el-icon>
+                    删除
+                  </el-button>
+                </div>
+              </template>
             </template>
-          </template>
-        </el-table-column>
-      </el-table>
+          </el-table-column>
+        </el-table>
+      </div>
 
       <div class="pagination-wrapper">
         <el-pagination
@@ -690,6 +693,36 @@ onMounted(() => {
 .hidden-text {
   color: #c0c4cc;
   letter-spacing: 2px;
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.word-table {
+  min-width: 100%;
+}
+
+/* 操作栏固定列的样式优化 */
+.word-table :deep(.el-table__fixed-right) {
+  box-shadow: -4px 0 6px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+}
+
+.word-table :deep(.el-table__fixed-right-patch) {
+  box-shadow: -4px 0 6px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+}
+
+/* 确保表格内容不会被操作栏挡住 */
+.word-table :deep(.el-table__body-wrapper) {
+  overflow-x: auto;
+}
+
+/* 操作栏内边距优化 */
+.word-table :deep(.el-table__fixed-right .cell) {
+  padding-right: 0;
 }
 
 .action-buttons-row {
