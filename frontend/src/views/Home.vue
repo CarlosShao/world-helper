@@ -218,7 +218,9 @@ const viewMode = ref<'list' | 'tree'>('tree')
 const treeData = ref<any[]>([])
 const treeProps = {
   children: 'children',
-  label: 'english'
+  label: (node: any) => {
+    return node.english || node.title || '未知'
+  }
 }
 
 const loadWords = async () => {

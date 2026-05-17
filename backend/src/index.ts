@@ -375,12 +375,37 @@ async function startServer() {
 
     // 合并子词到children数组（用于前端展示）
     rootWords.forEach(word => {
-      if (word.derivatives.length > 0 || word.phrases.length > 0) {
+      const childItems: any[] = [];
+      
+      if (word.derivatives.length > 0) {
+        const derivativeGroup = {
+          id: `deriv-${word.id}`,
+          title: '衍生词',
+          type: 'group',
+          children: word.derivatives.map((d: any) => ({
+            ...d,
+            children: []
+          }))
+        };
+        childItems.push(derivativeGroup);
+      }
+      
+      if (word.phrases.length > 0) {
+        const phraseGroup = {
+          id: `phrase-${word.id}`,
+          title: '短语',
+          type: 'group',
+          children: word.phrases.map((p: any) => ({
+            ...p,
+            children: []
+          }))
+        };
+        childItems.push(phraseGroup);
+      }
+      
+      if (childItems.length > 0) {
         word.hasChildren = true;
-        word.children = [
-          ...(word.derivatives.length > 0 ? [{ type: 'derivative', title: '衍生词', children: word.derivatives }] : []),
-          ...(word.phrases.length > 0 ? [{ type: 'phrase', title: '短语', children: word.phrases }] : [])
-        ];
+        word.children = childItems;
       }
       delete word.derivatives;
       delete word.phrases;
