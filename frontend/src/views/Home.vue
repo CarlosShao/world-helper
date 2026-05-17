@@ -61,6 +61,7 @@
         stripe
         row-key="id"
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        v-loading="loading"
       >
         <el-table-column type="index" label="序号" width="70" align="center" />
         <el-table-column label="英文" min-width="180">
@@ -87,14 +88,7 @@
             </template>
           </template>
         </el-table-column>
-        <el-table-column label="关系" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.relationType" size="small" :type="row.relationType === 'derivative' ? 'primary' : 'success'">
-              {{ row.relationType === 'derivative' ? '衍生词' : '短语' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="150" align="center">
+        <el-table-column label="操作" width="180" align="center">
           <template #default="{ row }">
             <template v-if="row.type !== 'group' && row.id">
               <el-button size="small" @click="toggleChinese(row.id)" text>
@@ -102,6 +96,9 @@
               </el-button>
               <el-button size="small" @click="toggleEnglish(row.id)" text>
                 {{ hiddenEnglish.has(row.id) ? '显示' : '隐藏' }}英文
+              </el-button>
+              <el-button size="small" type="danger" @click="resetWordClassification(row.id)" text>
+                重新分类
               </el-button>
             </template>
           </template>
@@ -201,8 +198,10 @@ const hiddenEnglish = ref<Set<number>>(new Set())
 const allChineseHidden = ref(false)
 const allEnglishHidden = ref(false)
 const classifying = ref(false)
+const loading = ref(false)
 
 const loadWords = async () => {
+  loading.value = true
   try {
     const res = await wordApi.getWordsTree(searchText.value)
     tableData.value = res.data.words
@@ -210,6 +209,8 @@ const loadWords = async () => {
     words.value = flattenTreeData(res.data.words)
   } catch (error) {
     ElMessage.error('加载数据失败')
+  } finally {
+    loading.value = false
   }
 }
 

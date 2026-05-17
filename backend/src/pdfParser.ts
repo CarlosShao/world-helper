@@ -18,41 +18,40 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   
   console.log(`Found ${wordMeaningIndices.length} WordMeaning markers`);
   
-  // 策略1：如果有很多 WordMeaning 标记，可能是按页分组的
-  // 先尝试一个更直接的方式：遍历所有行，找到所有数字序号
-  // 然后根据位置，区分哪些是单词区域，哪些是释义区域
-  
-  const allNumberedLines: Array<{ index: number; content: string; lineNum: number }> = [];
-  
+  // 策略：找到所有数字序号，然后收集直到下一个数字或WordMeaning标记之前的所有内容
+  const allNumberedIndices: Array<{ index: number; lineNum: number }> = [];
   lines.forEach((line, i) => {
     const numMatch = line.match(/^(\d+)$/);
     if (numMatch) {
       const index = parseInt(numMatch[1]);
-      if (i + 1 < lines.length) {
-        allNumberedLines.push({
-          index,
-          content: lines[i + 1],
-          lineNum: i
-        });
+      allNumberedIndices.push({ index, lineNum: i });
+    }
+  });
+  
+  console.log(`Found ${allNumberedIndices.length} numbered indices`);
+  
+  // 分组处理：相同索引的内容收集在一起
+  const indexMap = new Map<number, string[]>();
+  
+  for (let i = 0; i < allNumberedIndices.length; i++) {
+    const { index, lineNum } = allNumberedIndices[i];
+    const nextIndex = i < allNumberedIndices.length - 1 ? allNumberedIndices[i + 1].lineNum : lines.length;
+    
+    // 收集从 lineNum+1 到 nextIndex 之间的所有内容
+    const content = [];
+    for (let j = lineNum + 1; j < nextIndex && j < lines.length; j++) {
+      const line = lines[j];
+      if (line === 'WordMeaning') break;
+      content.push(line);
+    }
+    
+    if (content.length > 0) {
+      if (!indexMap.has(index)) {
+        indexMap.set(index, []);
       }
+      indexMap.get(index)!.push(content.join(' '));
     }
-  });
-  
-  console.log(`Found ${allNumberedLines.length} numbered items`);
-  
-  // 现在找出所有相同数字的配对
-  // 相同数字的第一个应该是单词，第二个应该是释义
-  const indexMap = new Map<number, Array<{ content: string; lineNum: number }>>();
-  
-  allNumberedLines.forEach(item => {
-    if (!indexMap.has(item.index)) {
-      indexMap.set(item.index, []);
-    }
-    indexMap.get(item.index)!.push({
-      content: item.content,
-      lineNum: item.lineNum
-    });
-  });
+  }
   
   console.log(`Found ${indexMap.size} unique indices`);
   
@@ -65,8 +64,8 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
     const items = indexMap.get(i);
     if (items && items.length >= 2) {
       // 第一个是单词，第二个是释义
-      const english = items[0].content;
-      const meaning = items[1].content;
+      const english = items[0];
+      const meaning = items[1];
       
       let part_of_speech = '';
       let chinese = meaning;
@@ -91,7 +90,6 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   // 如果这种方式没找到，尝试老方式
   if (words.length === 0 && wordMeaningIndices.length >= 2) {
     console.log('Falling back to old method...');
-    // 老方法逻辑（保留）
     const startWords = wordMeaningIndices[0] + 1;
     const startMeanings = wordMeaningIndices[1] + 1;
     

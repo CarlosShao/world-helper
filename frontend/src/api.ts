@@ -46,6 +46,10 @@ export const wordApi = {
     return api.post('/classify/all', { keepManual })
   },
   
+  resetWordClassification: (wordId: number) => {
+    return api.post('/classify/reset', { wordId })
+  },
+  
   addErrorWord: (wordId: number) => {
     return api.post('/error-words', { wordId })
   },

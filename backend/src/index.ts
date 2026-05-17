@@ -484,9 +484,13 @@ async function startServer() {
         wordIndex.set(w.english.toLowerCase(), w.id);
       });
 
-      // 智能分类算法
+      // 智能分类算法 - 更精确的算法
       let classifiedCount = 0;
       const processedIds: number[] = [];
+
+      // 先找出所有可能的词根，避免长单词被短单词错误匹配
+      // 按单词长度排序，优先处理短单词作为词根
+      const sortedAllWords = [...allWords].sort((a, b) => a.english.length - b.english.length);
 
       for (const word of words) {
         const english = word.english.toLowerCase().trim();
@@ -506,7 +510,7 @@ async function startServer() {
             }
           }
         } else {
-          const rootWord = findRootWord(english, wordIndex, rules);
+          const rootWord = findBestRootWord(english, wordIndex, rules, sortedAllWords);
           if (rootWord && rootWord !== word.id) {
             const existing = get('SELECT * FROM word_relations WHERE root_word_id = ? AND child_word_id = ? AND relation_type = ?',
                               [rootWord, word.id, 'derivative']);
@@ -533,6 +537,26 @@ async function startServer() {
     } catch (error) {
       console.error('Classification error:', error);
       res.status(500).json({ success: false, message: '分类失败' });
+    }
+  });
+  
+  // 重置单个单词的分类
+  app.post('/api/classify/reset', (req, res) => {
+    const { wordId } = req.body;
+    
+    try {
+      // 首先解除该单词作为子单词的关系
+      run('DELETE FROM word_relations WHERE child_word_id = ?', [wordId]);
+      // 解除该单词作为父单词的关系，并把这些子单词变回独立
+      run('DELETE FROM word_relations WHERE root_word_id = ?', [wordId]);
+      // 标记该单词未分类
+      run('UPDATE words SET is_classified = 0 WHERE id = ?', [wordId]);
+      
+      saveDb();
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Reset classification error:', error);
+      res.status(500).json({ success: false, message: '重置分类失败' });
     }
   });
 
@@ -598,23 +622,49 @@ function extractCoreWord(phrase: string, wordIndex: Map<string, number>): number
 
 // 查找根词
 function findRootWord(word: string, wordIndex: Map<string, number>, rules: any[]): number | null {
-  // 按优先级尝试匹配词缀
+  return findBestRootWord(word, wordIndex, rules, []);
+}
+
+// 查找最佳根词 - 更精确的算法
+function findBestRootWord(word: string, wordIndex: Map<string, number>, rules: any[], allWords: any[]): number | null {
+  let bestRoot: number | null = null;
+  let bestRootLength = -1;
+  
+  // 首先尝试直接找最可能的短词根
   for (const rule of rules) {
     const suffix = rule.suffix;
     
     if (word.endsWith(suffix)) {
-      const root = word.slice(0, -suffix.length);
+      let root = word.slice(0, -suffix.length);
+      
       // 处理特殊情况：如果后缀是 'tion'，可能需要去掉前面的 'a' 或 'i'
       if (suffix === 'tion' || suffix === 'ation') {
         if (root.endsWith('a') || root.endsWith('i')) {
           const altRoot = root.slice(0, -1);
           if (wordIndex.has(altRoot)) {
-            return wordIndex.get(altRoot) || null;
+            if (altRoot.length > bestRootLength) {
+              bestRoot = wordIndex.get(altRoot) || null;
+              bestRootLength = altRoot.length;
+            }
           }
         }
       }
+      
+      // 尝试当前词根
       if (wordIndex.has(root)) {
-        return wordIndex.get(root) || null;
+        if (root.length > bestRootLength) {
+          bestRoot = wordIndex.get(root) || null;
+          bestRootLength = root.length;
+        }
+      }
+      
+      // 尝试去掉末尾的e（如translate -> translation）
+      if (root.endsWith('e') && wordIndex.has(root.slice(0, -1))) {
+        const altRoot = root.slice(0, -1);
+        if (altRoot.length > bestRootLength) {
+          bestRoot = wordIndex.get(altRoot) || null;
+          bestRootLength = altRoot.length;
+        }
       }
     }
     
@@ -622,12 +672,15 @@ function findRootWord(word: string, wordIndex: Map<string, number>, rules: any[]
     if (word.startsWith(suffix)) {
       const root = word.slice(suffix.length);
       if (wordIndex.has(root)) {
-        return wordIndex.get(root) || null;
+        if (root.length > bestRootLength) {
+          bestRoot = wordIndex.get(root) || null;
+          bestRootLength = root.length;
+        }
       }
     }
   }
   
-  return null;
+  return bestRoot;
 }
 
 startServer();
