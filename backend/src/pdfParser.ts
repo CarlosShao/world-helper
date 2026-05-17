@@ -7,25 +7,24 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   const lines = data.text.split('\n').map(line => line.trim()).filter(line => line);
   
   console.log(`Total lines: ${lines.length}`);
+  console.log('=== PDF前200行 ===');
+  lines.slice(0, 200).forEach((line, i) => console.log(`${i}: ${line}`));
   
-  // 打印前100行
-  console.log('=== PDF前100行 ===');
-  lines.slice(0, 100).forEach((line, i) => console.log(`${i}: ${line}`));
-  
-  // 先收集所有内容，不处理双栏，直接把整个文档按顺序处理
-  // 找到所有数字序号
-  const numberedEntries: Array<{ index: number; lines: string[] }> = [];
+  // 【暴力方法】：找到所有数字序号，然后把序号后面的**所有内容**都收集起来，直到遇到下一个数字序号
+  // 然后再手动把英语和释义分开
+  const entries: Array<{ index: number; allContent: string[] }> = [];
   
   let currentIndex: number | null = null;
   let currentContent: string[] = [];
   
   for (const line of lines) {
     const numMatch = line.match(/^(\d+)$/);
+    
     if (numMatch) {
-      // 新的序号
       if (currentIndex !== null && currentContent.length > 0) {
-        numberedEntries.push({ index: currentIndex, lines: [...currentContent] });
+        entries.push({ index: currentIndex, allContent: [...currentContent] });
       }
+      
       currentIndex = parseInt(numMatch[1]);
       currentContent = [];
     } else if (currentIndex !== null) {
@@ -37,91 +36,72 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   
   // 添加最后一个
   if (currentIndex !== null && currentContent.length > 0) {
-    numberedEntries.push({ index: currentIndex, lines: [...currentContent] });
+    entries.push({ index: currentIndex, allContent: [...currentContent] });
   }
   
-  console.log(`找到 ${numberedEntries.length} 个带序号的条目`);
+  console.log(`找到 ${entries.length} 个条目`);
+  entries.slice(0, 10).forEach((entry, i) => {
+    console.log(`条目${i+1} (序号${entry.index}): ${JSON.stringify(entry.allContent)}`);
+  });
   
-  // 现在假设：相同序号的条目，奇数位是英语，偶数位是释义（因为双栏）
-  const words: Array<{ english: string; part_of_speech: string; chinese: string }> = [];
-  const indexMap = new Map<number, Array<string[]>>();
+  // 现在处理：同一个序号出现两次，第一次是英语，第二次是释义
+  // 先把相同序号的内容合并
+  const indexMap = new Map<number, string[]>();
   
-  for (const entry of numberedEntries) {
+  for (const entry of entries) {
     if (!indexMap.has(entry.index)) {
       indexMap.set(entry.index, []);
     }
-    indexMap.get(entry.index)!.push(entry.lines);
+    indexMap.get(entry.index)!.push(...entry.allContent);
   }
   
-  console.log(`序号分布：`);
-  indexMap.forEach((contentGroups, index) => {
-    console.log(`  ${index}: ${contentGroups.length}次`);
-  });
+  console.log(`合并后有 ${indexMap.size} 个唯一序号`);
   
-  // 对于有偶数个内容组的序号（双栏），两两配对
-  indexMap.forEach((contentGroups, index) => {
-    if (contentGroups.length >= 2) {
-      // 第一组：英语（可能多行）
-      let english = contentGroups[0].join(' ').trim();
-      // 第二组：释义（可能多行）
-      let meaning = contentGroups[1].join(' ').trim();
-      
-      // 特殊处理：如果有更多组，说明有跨行，尝试合并
-      if (contentGroups.length > 2) {
-        // 智能判断：看看有没有像 "translate sth" 这样被分成多个条目的
-        console.log(`序号${index}有${contentGroups.length}组内容，尝试智能合并...`);
-        
-        // 把所有组都收集起来
-        const allParts = contentGroups.flat();
-        
-        // 尝试找出哪些是英语，哪些是释义
-        // 简单策略：第一部分是英语，剩下的合并到释义？
-        // 或者：找有词性标记的作为释义
-        let foundMeaning = false;
-        let englishParts: string[] = [];
-        let meaningParts: string[] = [];
-        
-        for (const part of allParts) {
-          if (/^[a-z]+\./i.test(part) && !foundMeaning) {
-            foundMeaning = true;
-            meaningParts.push(part);
-          } else if (foundMeaning) {
-            meaningParts.push(part);
-          } else {
-            englishParts.push(part);
-          }
-        }
-        
-        if (englishParts.length > 0 && meaningParts.length > 0) {
-          english = englishParts.join(' ').trim();
-          meaning = meaningParts.join(' ').trim();
-          console.log(`  智能合并成功: 英语="${english}", 释义="${meaning}"`);
-        }
+  // 现在把每个序号的所有内容，手动拆分成英语和释义
+  const words: Array<{ english: string; part_of_speech: string; chinese: string }> = [];
+  
+  indexMap.forEach((allContent, index) => {
+    console.log(`序号${index}的全部内容: ${JSON.stringify(allContent)}`);
+    
+    // 找第一个看起来像词性标记的内容
+    let posIndex = -1;
+    for (let i = 0; i < allContent.length; i++) {
+      if (/^[a-z]+\.?$/i.test(allContent[i])) {
+        posIndex = i;
+        break;
       }
-      
-      console.log(`序号${index}: 英语="${english}" | 释义="${meaning}"`);
-      
-      // 过滤纯数字
-      if (/^\d+$/.test(english)) {
-        console.log(`跳过纯数字：${english}`);
-        return;
-      }
-      
-      let part_of_speech = '';
-      let chinese = meaning;
-      
-      const posMatch = meaning.match(/^([a-z]+\.?)\s*(.*)$/i);
-      if (posMatch) {
-        part_of_speech = posMatch[1].trim();
-        chinese = posMatch[2].trim();
-      }
-      
-      words.push({
-        english,
-        part_of_speech,
-        chinese
-      });
     }
+    
+    if (posIndex === -1) {
+      console.log(`没找到词性标记，跳过序号${index}`);
+      return;
+    }
+    
+    const english = allContent.slice(0, posIndex).join(' ').trim();
+    const meaning = allContent.slice(posIndex).join(' ').trim();
+    
+    console.log(`序号${index}: 英语="${english}" | 释义="${meaning}"`);
+    
+    // 过滤纯数字
+    if (/^\d+$/.test(english)) {
+      console.log(`跳过纯数字：${english}`);
+      return;
+    }
+    
+    let part_of_speech = '';
+    let chinese = meaning;
+    
+    const posMatch = meaning.match(/^([a-z]+\.?)\s*(.*)$/i);
+    if (posMatch) {
+      part_of_speech = posMatch[1].trim();
+      chinese = posMatch[2].trim();
+    }
+    
+    words.push({
+      english,
+      part_of_speech,
+      chinese
+    });
   });
   
   console.log(`共解析出 ${words.length} 个单词`);
