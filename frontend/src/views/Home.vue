@@ -88,18 +88,23 @@
             </template>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" align="center">
+        <el-table-column label="操作" width="220" align="center">
           <template #default="{ row }">
             <template v-if="row.type !== 'group' && row.id">
-              <el-button size="small" @click="toggleChinese(row.id)" text>
-                {{ hiddenChinese.has(row.id) ? '显示' : '隐藏' }}中文
-              </el-button>
-              <el-button size="small" @click="toggleEnglish(row.id)" text>
-                {{ hiddenEnglish.has(row.id) ? '显示' : '隐藏' }}英文
-              </el-button>
-              <el-button size="small" type="danger" @click="resetWordClassification(row.id)" text>
-                重新分类
-              </el-button>
+              <div class="action-buttons-row">
+                <el-button size="small" @click="toggleChinese(row.id)" text>
+                  {{ hiddenChinese.has(row.id) ? '显示' : '隐藏' }}中文
+                </el-button>
+                <el-button size="small" @click="toggleEnglish(row.id)" text>
+                  {{ hiddenEnglish.has(row.id) ? '显示' : '隐藏' }}英文
+                </el-button>
+                <el-button size="small" type="warning" @click="resetWordClassification(row.id)" text>
+                  重新分类
+                </el-button>
+                <el-button size="small" type="primary" @click="showManualClassification(row.id)" text>
+                  手动分类
+                </el-button>
+              </div>
             </template>
           </template>
         </el-table-column>
@@ -117,6 +122,89 @@
         />
       </div>
     </el-card>
+
+    <!-- 手动分类对话框 -->
+    <el-dialog
+      v-model="manualClassificationDialogVisible"
+      title="手动分类"
+      width="800px"
+      class="manual-classification-dialog"
+    >
+      <div class="manual-classification-content">
+        <div class="current-word-section">
+          <h4>当前单词</h4>
+          <div v-if="currentWordData" class="current-word-card">
+            <span class="word-name">{{ currentWordData.english }}</span>
+            <el-tag size="small" type="info">{{ currentWordData.part_of_speech }}</el-tag>
+            <span class="word-meaning">{{ currentWordData.chinese }}</span>
+          </div>
+        </div>
+
+        <div class="relations-section">
+          <h4>当前分类关系</h4>
+          <div v-if="currentWordData && currentWordData.children && currentWordData.children.length > 0">
+            <el-tree
+              :data="currentWordData.children"
+              :props="{ children: 'children', label: 'english' }"
+              default-expand-all
+            >
+              <template #default="{ node, data }">
+                <div class="tree-item">
+                  <span>{{ data.english }}</span>
+                  <el-tag v-if="data.type === 'group'" size="small" type="warning">{{ data.title }}</el-tag>
+                  <el-button 
+                    v-if="data.id" 
+                    size="small" 
+                    type="danger" 
+                    text 
+                    @click="removeRelation(data.relationId)"
+                  >
+                    删除
+                  </el-button>
+                </div>
+              </template>
+            </el-tree>
+          </div>
+          <div v-else class="empty-state">
+            暂无分类关系
+          </div>
+        </div>
+
+        <div class="add-section">
+          <h4>添加到根词</h4>
+          <div class="search-box">
+            <el-input 
+              v-model="manualSearchText" 
+              placeholder="搜索根词"
+              @input="() => {}"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </div>
+          <div class="word-list">
+            <div 
+              v-for="word in availableWords.filter(w => 
+                !manualSearchText || w.english.toLowerCase().includes(manualSearchText.toLowerCase())
+              ).slice(0, 10)" 
+              :key="word.id"
+              class="word-item"
+              @click="addToRootWord(word.id)"
+            >
+              <span class="word-label">{{ word.english }}</span>
+              <span class="word-pos">{{ word.part_of_speech }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="closeManualClassification">关闭</el-button>
+        </div>
+      </template>
+    </el-dialog>
 
     <!-- 上传对话框 -->
     <el-dialog
@@ -341,6 +429,72 @@ const reclassifyWords = async () => {
   }
 }
 
+const manualClassificationDialogVisible = ref(false)
+const currentWordId = ref(0)
+const currentWordData = ref<any>(null)
+const manualSearchText = ref('')
+const availableWords = ref<any[]>([])
+
+const showManualClassification = async (wordId: number) => {
+  currentWordId.value = wordId
+  manualClassificationDialogVisible.value = true
+  await loadCurrentWordData(wordId)
+}
+
+const loadCurrentWordData = async (wordId: number) => {
+  try {
+    const res = await wordApi.getWordsTree('')
+    currentWordData.value = findWordInTree(res.data.words, wordId)
+    
+    const allWordsRes = await wordApi.getWords(1, 10000)
+    availableWords.value = allWordsRes.data.words.filter(w => w.id !== wordId)
+  } catch (error) {
+    ElMessage.error('加载数据失败')
+  }
+}
+
+const findWordInTree = (tree: any[], wordId: number): any => {
+  for (const node of tree) {
+    if (node.id === wordId) {
+      return node
+    }
+    if (node.children && node.children.length > 0) {
+      const found = findWordInTree(node.children, wordId)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+const addToRootWord = async (rootWordId: number) => {
+  try {
+    await wordApi.addRelation(rootWordId, currentWordId.value, 'derivative')
+    ElMessage.success('添加成功')
+    await loadCurrentWordData(currentWordId.value)
+    loadWords()
+  } catch (error) {
+    ElMessage.error('添加失败')
+  }
+}
+
+const removeRelation = async (relationId: number) => {
+  try {
+    await wordApi.deleteRelation(relationId)
+    ElMessage.success('移除成功')
+    await loadCurrentWordData(currentWordId.value)
+    loadWords()
+  } catch (error) {
+    ElMessage.error('移除失败')
+  }
+}
+
+const closeManualClassification = () => {
+  manualClassificationDialogVisible.value = false
+  currentWordId.value = 0
+  currentWordData.value = null
+  manualSearchText.value = ''
+}
+
 onMounted(() => {
   loadWords()
 })
@@ -401,6 +555,13 @@ onMounted(() => {
 .hidden-text {
   color: #c0c4cc;
   letter-spacing: 2px;
+}
+
+.action-buttons-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .pagination-wrapper {
@@ -529,5 +690,88 @@ onMounted(() => {
   .search-bar {
     gap: 6px;
   }
+}
+
+/* 手动分类对话框样式 */
+.manual-classification-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.current-word-section h4,
+.relations-section h4,
+.add-section h4 {
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.current-word-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.word-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.word-meaning {
+  color: #606266;
+  font-size: 14px;
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.empty-state {
+  padding: 24px;
+  text-align: center;
+  color: #909399;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.search-box {
+  margin-bottom: 12px;
+}
+
+.word-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.word-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.word-item:hover {
+  background: #f5f7fa;
+}
+
+.word-label {
+  font-weight: 500;
+  color: #303133;
+}
+
+.word-pos {
+  font-size: 12px;
+  color: #909399;
 }
 </style>

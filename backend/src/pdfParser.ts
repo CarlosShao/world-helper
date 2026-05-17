@@ -67,6 +67,11 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
       const english = items[0];
       const meaning = items[1];
       
+      // 过滤纯数字的单词（序号不应该被当成单词）
+      if (/^\d+$/.test(english.trim())) {
+        continue;
+      }
+      
       let part_of_speech = '';
       let chinese = meaning;
       
