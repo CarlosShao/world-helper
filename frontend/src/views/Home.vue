@@ -172,6 +172,13 @@
 
         <div class="add-section">
           <h4>添加到根词</h4>
+          <div class="relation-type-selector">
+            <span class="type-label">关系类型：</span>
+            <el-radio-group v-model="selectedRelationType" size="small">
+              <el-radio value="derivative">衍生词</el-radio>
+              <el-radio value="phrase">短语</el-radio>
+            </el-radio-group>
+          </div>
           <div class="search-box">
             <el-input 
               v-model="manualSearchText" 
@@ -190,7 +197,7 @@
               ).slice(0, 10)" 
               :key="word.id"
               class="word-item"
-              @click="addToRootWord(word.id)"
+              @click="addRelation(word.id)"
             >
               <span class="word-label">{{ word.english }}</span>
               <span class="word-pos">{{ word.part_of_speech }}</span>
@@ -288,7 +295,28 @@ const allEnglishHidden = ref(false)
 const classifying = ref(false)
 const loading = ref(false)
 
+const manualClassificationDialogVisible = ref(false)
+const currentWordId = ref(0)
+const currentWordData = ref<any>(null)
+const manualSearchText = ref('')
+const availableWords = ref<any[]>([])
+const selectedRelationType = ref('derivative')
+
 const loadWords = async () => {
+  loading.value = true
+  try {
+    const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
+    tableData.value = res.data.words
+    total.value = res.data.total
+    words.value = res.data.words
+  } catch (error) {
+    ElMessage.error('加载数据失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadTreeData = async () => {
   loading.value = true
   try {
     const res = await wordApi.getWordsTree(searchText.value)
@@ -417,23 +445,32 @@ const goToPractice = () => {
 }
 
 const reclassifyWords = async () => {
+  loading.value = true
   try {
     classifying.value = true
     const res = await wordApi.classifyAll(false)
     ElMessage.success(`成功分类 ${res.data.classified} 个单词`)
-    loadWords()
+    await loadWords()
   } catch (error) {
     ElMessage.error('分类失败')
   } finally {
     classifying.value = false
+    loading.value = false
   }
 }
 
-const manualClassificationDialogVisible = ref(false)
-const currentWordId = ref(0)
-const currentWordData = ref<any>(null)
-const manualSearchText = ref('')
-const availableWords = ref<any[]>([])
+const resetWordClassification = async (wordId: number) => {
+  loading.value = true
+  try {
+    await wordApi.resetWordClassification(wordId)
+    ElMessage.success('重置分类成功')
+    await loadWords()
+  } catch (error) {
+    ElMessage.error('重置分类失败')
+  } finally {
+    loading.value = false
+  }
+}
 
 const showManualClassification = async (wordId: number) => {
   currentWordId.value = wordId
@@ -466,9 +503,9 @@ const findWordInTree = (tree: any[], wordId: number): any => {
   return null
 }
 
-const addToRootWord = async (rootWordId: number) => {
+const addRelation = async (rootWordId: number) => {
   try {
-    await wordApi.addRelation(rootWordId, currentWordId.value, 'derivative')
+    await wordApi.addRelation(rootWordId, currentWordId.value, selectedRelationType.value)
     ElMessage.success('添加成功')
     await loadCurrentWordData(currentWordId.value)
     loadWords()
@@ -493,6 +530,7 @@ const closeManualClassification = () => {
   currentWordId.value = 0
   currentWordData.value = null
   manualSearchText.value = ''
+  selectedRelationType.value = 'derivative'
 }
 
 onMounted(() => {
@@ -740,6 +778,18 @@ onMounted(() => {
   color: #909399;
   background: #f5f7fa;
   border-radius: 8px;
+}
+
+.relation-type-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.type-label {
+  font-size: 14px;
+  color: #606266;
 }
 
 .search-box {
