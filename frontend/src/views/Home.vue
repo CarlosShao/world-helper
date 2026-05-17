@@ -10,16 +10,14 @@
               <el-tag type="info" size="small" style="margin-left: 12px;">共 {{ total }} 个</el-tag>
             </div>
             <div class="header-actions">
-              <div class="action-buttons">
-                <el-button type="warning" @click="reclassifyWords" :loading="classifying" size="small">
-                  <el-icon><Refresh /></el-icon>
-                  重新分类
-                </el-button>
-                <el-button type="primary" @click="showUploadDialog" size="small">
-                  <el-icon><Upload /></el-icon>
-                  导入
-                </el-button>
-              </div>
+              <el-button type="warning" @click="reclassifyWords" :loading="classifying" size="small">
+                <el-icon><Refresh /></el-icon>
+                重新分类
+              </el-button>
+              <el-button type="primary" @click="showUploadDialog" size="small">
+                <el-icon><Upload /></el-icon>
+                导入
+              </el-button>
             </div>
           </div>
           <div class="search-bar">
@@ -35,20 +33,20 @@
                 <el-icon><Search /></el-icon>
               </template>
             </el-input>
-            <el-button type="primary" @click="loadWords">
+            <el-button type="primary" @click="loadWords" size="small">
               <el-icon><Search /></el-icon>
             </el-button>
             <el-divider direction="vertical" />
-            <el-button @click="toggleAllChinese">
+            <el-button @click="toggleAllChinese" size="small">
               <el-icon><View /></el-icon>
               {{ allChineseHidden ? '显示中文' : '隐藏中文' }}
             </el-button>
-            <el-button @click="toggleAllEnglish">
+            <el-button @click="toggleAllEnglish" size="small">
               <el-icon><Hide /></el-icon>
               {{ allEnglishHidden ? '显示英文' : '隐藏英文' }}
             </el-button>
-            <el-button type="success" @click="goToPractice">
-              <el-icon style="margin-right: 6px;"><Edit /></el-icon>
+            <el-button type="success" @click="goToPractice" size="small">
+              <el-icon style="margin-right: 4px;"><Edit /></el-icon>
               随手拼
             </el-button>
           </div>
@@ -88,20 +86,20 @@
             </template>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="220" align="center">
+        <el-table-column label="操作" width="200" align="center">
           <template #default="{ row }">
-            <template v-if="row.type !== 'group' && row.id">
+            <template v-if="row.type !== 'group' && row.id && !row.isChild">
               <div class="action-buttons-row">
-                <el-button size="small" @click="toggleChinese(row.id)" text>
+                <el-button size="mini" @click="toggleChinese(row.id)" :class="hiddenChinese.has(row.id) ? 'btn-show' : 'btn-hide'">
                   {{ hiddenChinese.has(row.id) ? '显示' : '隐藏' }}中文
                 </el-button>
-                <el-button size="small" @click="toggleEnglish(row.id)" text>
+                <el-button size="mini" @click="toggleEnglish(row.id)" :class="hiddenEnglish.has(row.id) ? 'btn-show' : 'btn-hide'">
                   {{ hiddenEnglish.has(row.id) ? '显示' : '隐藏' }}英文
                 </el-button>
-                <el-button size="small" type="warning" @click="resetWordClassification(row.id)" text>
+                <el-button size="mini" type="warning" @click="resetWordClassification(row.id)">
                   重新分类
                 </el-button>
-                <el-button size="small" type="primary" @click="showManualClassification(row.id)" text>
+                <el-button size="mini" type="primary" @click="showManualClassification(row.id)">
                   手动分类
                 </el-button>
               </div>
@@ -305,59 +303,65 @@ const selectedRelationType = ref('derivative')
 const loadWords = async () => {
   loading.value = true
   try {
-    const res = await wordApi.getWordsTree(searchText.value)
-    tableData.value = res.data.words
-    total.value = res.data.total
-    words.value = flattenTreeData(res.data.words)
-  } catch (error) {
-    ElMessage.error('加载数据失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-const loadFlatWords = async () => {
-  loading.value = true
-  try {
     const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
-    tableData.value = res.data.words
-    total.value = res.data.total
-    words.value = res.data.words
-  } catch (error) {
-    ElMessage.error('加载数据失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-const loadTreeData = async () => {
-  loading.value = true
-  try {
-    const res = await wordApi.getWordsTree(searchText.value)
-    tableData.value = res.data.words
-    total.value = res.data.total
-    words.value = flattenTreeData(res.data.words)
-  } catch (error) {
-    ElMessage.error('加载数据失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-const flattenTreeData = (tree: any[]): Word[] => {
-  const result: Word[] = []
-  const flatten = (nodes: any[]) => {
-    for (const node of nodes) {
-      if (node.id && node.type !== 'group') {
-        result.push(node as Word)
-      }
-      if (node.children && node.children.length > 0) {
-        flatten(node.children)
+    const flatWords = res.data.words
+    
+    const treeRes = await wordApi.getWordsTree(searchText.value)
+    
+    const treeMap = new Map<number, any>()
+    const buildTreeMap = (nodes: any[], parentId: number | null = null) => {
+      for (const node of nodes) {
+        if (node.id && node.type !== 'group') {
+          treeMap.set(node.id, {
+            hasChildren: node.children && node.children.length > 0,
+            children: node.children,
+            parentId
+          })
+        }
+        if (node.children && node.children.length > 0) {
+          buildTreeMap(node.children, node.id)
+        }
       }
     }
+    buildTreeMap(treeRes.data.words)
+    
+    const result: any[] = []
+    for (const word of flatWords) {
+      const treeInfo = treeMap.get(word.id)
+      const children = treeInfo?.children || []
+      
+      const processedChildren = children.map((child: any) => {
+        if (child.type === 'group') {
+          return {
+            ...child,
+            children: child.children.map((c: any) => ({
+              ...c,
+              isChild: true
+            }))
+          }
+        }
+        return {
+          ...child,
+          isChild: true
+        }
+      })
+      
+      result.push({
+        ...word,
+        hasChildren: processedChildren.length > 0,
+        children: processedChildren,
+        isChild: treeInfo?.parentId !== null
+      })
+    }
+    
+    tableData.value = result
+    total.value = res.data.total
+    words.value = flatWords
+  } catch (error) {
+    ElMessage.error('加载数据失败')
+  } finally {
+    loading.value = false
   }
-  flatten(tree)
-  return result
 }
 
 const showUploadDialog = () => {
@@ -399,6 +403,7 @@ const handleImport = async () => {
     const res = await wordApi.importFile(selectedFile.value)
     ElMessage.success(`成功导入 ${res.data.count} 个单词`)
     uploadDialogVisible.value = false
+    currentPage.value = 1
     loadWords()
   } catch (error) {
     ElMessage.error('导入失败，请检查文件格式是否正确')
@@ -438,19 +443,6 @@ const toggleAllEnglish = () => {
     words.value.forEach(w => hiddenEnglish.value.add(w.id))
   } else {
     hiddenEnglish.value.clear()
-  }
-}
-
-const toggleAllChineseSimple = () => {
-  allChineseHidden.value = !allChineseHidden.value
-  if (allChineseHidden.value) {
-    tableData.value.forEach(w => {
-      if (w.id && w.type !== 'group') {
-        hiddenChinese.value.add(w.id)
-      }
-    })
-  } else {
-    hiddenChinese.value.clear()
   }
 }
 
@@ -496,16 +488,12 @@ const loadCurrentWordData = async (wordId: number) => {
   try {
     const res = await wordApi.getWordsTree('')
     
-    // 先尝试找作为根节点的情况
     let foundNode = findWordInTree(res.data.words, wordId)
     
-    // 如果没找到作为根节点，尝试找作为子节点的情况
     if (!foundNode) {
       const allWordsRes = await wordApi.getWords(1, 10000)
       const wordInfo = allWordsRes.data.words.find(w => w.id === wordId)
       if (wordInfo) {
-        // 创建一个临时节点，包含单词基本信息，但没有子节点
-        // 这种情况表示单词是某个根词的子节点
         foundNode = {
           ...wordInfo,
           children: []
@@ -610,11 +598,21 @@ onMounted(() => {
   gap: 8px;
 }
 
+.header-actions .el-button {
+  padding: 6px 16px;
+  font-size: 13px;
+}
+
 .search-bar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.search-bar .el-button {
+  padding: 6px 14px;
+  font-size: 13px;
 }
 
 .word-text {
@@ -629,9 +627,27 @@ onMounted(() => {
 
 .action-buttons-row {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 4px;
   justify-content: center;
+  align-items: center;
+}
+
+.action-buttons-row .el-button {
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.action-buttons-row .btn-hide {
+  background: #f5f7fa;
+  color: #606266;
+  border-color: #dcdfe6;
+}
+
+.action-buttons-row .btn-show {
+  background: #fff;
+  color: #667eea;
+  border-color: #667eea;
 }
 
 .pagination-wrapper {
@@ -738,19 +754,24 @@ onMounted(() => {
   }
   
   .word-list-card :deep(.el-button) {
-    padding: 6px 10px;
-    font-size: 12px;
+    padding: 4px 8px;
+    font-size: 11px;
   }
   
   .pagination-wrapper {
     justify-content: center;
   }
+  
+  .action-buttons-row {
+    flex-wrap: wrap;
+    gap: 2px;
+  }
 }
 
 @media (max-width: 480px) {
   .word-list-card :deep(.el-button) {
-    padding: 5px 8px;
-    font-size: 11px;
+    padding: 3px 6px;
+    font-size: 10px;
   }
   
   .word-list-card :deep(.el-table-column) {
@@ -758,7 +779,7 @@ onMounted(() => {
   }
   
   .search-bar {
-    gap: 6px;
+    gap: 4px;
   }
 }
 
