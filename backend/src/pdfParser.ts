@@ -31,72 +31,45 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   console.log(`Found ${allNumberedIndices.length} numbered indices`);
   
   // 分组处理：相同索引的内容收集在一起
-  const indexMap = new Map<number, string[]>();
+  const indexMap = new Map<number, { english: string; meaning: string }>();
   
   for (let i = 0; i < allNumberedIndices.length; i++) {
     const { index, lineNum } = allNumberedIndices[i];
     const nextIndex = i < allNumberedIndices.length - 1 ? allNumberedIndices[i + 1].lineNum : lines.length;
     
     // 收集从 lineNum+1 到 nextIndex 之间的所有内容
-    const content = [];
+    const content: string[] = [];
     for (let j = lineNum + 1; j < nextIndex && j < lines.length; j++) {
       const line = lines[j];
       if (line === 'WordMeaning') break;
       content.push(line);
     }
     
-    if (content.length > 0) {
-      if (!indexMap.has(index)) {
-        indexMap.set(index, []);
-      }
-      indexMap.get(index)!.push(content.join(' '));
+    if (content.length >= 2) {
+      // 第一个是单词，第二个是释义，后面的都是补充
+      indexMap.set(index, {
+        english: content[0],
+        meaning: content.slice(1).join(' ')
+      });
     }
   }
   
   console.log(`Found ${indexMap.size} unique indices`);
   
-  // 现在配对单词和释义
-  const words: Array<{ english: string; part_of_speech: string; chinese: string }> = [];
+  // 处理跨行的短语：检测并合并连续的不完整单词
+  const mergedWords = mergeIncompleteWords(indexMap);
   
-  const maxIndex = Math.max(...Array.from(indexMap.keys()));
+  console.log(`After merging: ${mergedWords.length} words`);
   
-  for (let i = 1; i <= maxIndex; i++) {
-    const items = indexMap.get(i);
-    if (items && items.length >= 2) {
-      // 第一个是单词，第二个是释义
-      let english = items[0];
-      let meaning = items[1];
-      
-      // 处理双栏PDF中跨行的情况：如果当前index的单词太短，尝试合并下一个index的内容
-      // 这是针对PDF中单词被分成多行的情况（如 "translate into" 和 "sth"）
-      if (i + 1 <= maxIndex) {
-        const nextItems = indexMap.get(i + 1);
-        if (nextItems && nextItems.length >= 2) {
-          const nextEnglish = nextItems[0];
-          const nextMeaning = nextItems[1];
-          
-          // 如果当前单词看起来不完整（太短或像前缀），尝试合并
-          // 检查当前单词是否可能是下一个单词的前缀或部分
-          if (isIncompleteWord(english) && !isIncompleteWord(nextEnglish)) {
-            // 将当前的单词内容合并到下一个
-            english = english + ' ' + nextEnglish;
-            meaning = meaning + ' ' + nextMeaning;
-            // 跳过下一个索引
-            i++;
-          } else if (isIncompleteWord(nextEnglish)) {
-            // 如果下一个单词看起来不完整，合并到当前
-            english = english + ' ' + nextEnglish;
-            meaning = meaning + ' ' + nextMeaning;
-            // 跳过下一个索引
-            i++;
-          }
-        }
-      }
+  // 转换为最终格式
+  const words: Array<{ english: string; part_of_speech: string; chinese: string }> = mergedWords
+    .map(item => {
+      const english = item.english;
+      const meaning = item.meaning;
       
       // 过滤纯数字的单词（序号不应该被当成单词）
-      // 也过滤单个数字或字母的单词
       if (/^\d+$/.test(english.trim()) || english.trim().length <= 1) {
-        continue;
+        return null;
       }
       
       let part_of_speech = '';
@@ -109,13 +82,13 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
         chinese = posMatch[2].trim();
       }
       
-      words.push({
+      return {
         english,
         part_of_speech,
         chinese
-      });
-    }
-  }
+      };
+    })
+    .filter((item): item is { english: string; part_of_speech: string; chinese: string } => item !== null);
   
   console.log(`Successfully parsed ${words.length} words`);
   
@@ -192,12 +165,62 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   return words;
 }
 
+// 合并跨行的不完整单词
+function mergeIncompleteWords(indexMap: Map<number, { english: string; meaning: string }>): Array<{ english: string; meaning: string }> {
+  const result: Array<{ english: string; meaning: string }> = [];
+  const maxIndex = Math.max(...Array.from(indexMap.keys()));
+  
+  let i = 1;
+  while (i <= maxIndex) {
+    const item = indexMap.get(i);
+    if (!item) {
+      i++;
+      continue;
+    }
+    
+    let english = item.english;
+    let meaning = item.meaning;
+    
+    // 检查当前单词是否可能不完整，如果是，继续检查后面的索引
+    // 连续合并所有不完整的部分
+    let j = i + 1;
+    while (j <= maxIndex) {
+      const nextItem = indexMap.get(j);
+      if (!nextItem) {
+        j++;
+        continue;
+      }
+      
+      // 如果当前单词不完整或者下一个单词不完整，合并它们
+      if (isIncompleteWord(english) || isIncompleteWord(nextItem.english)) {
+        english += ' ' + nextItem.english;
+        meaning += ' ' + nextItem.meaning;
+        j++;
+      } else {
+        // 检查下一个单词是否看起来像是当前单词的延续（相同前缀）
+        if (hasSamePrefix(english, nextItem.english)) {
+          english += ' ' + nextItem.english;
+          meaning += ' ' + nextItem.meaning;
+          j++;
+        } else {
+          break;
+        }
+      }
+    }
+    
+    result.push({ english, meaning });
+    i = j;
+  }
+  
+  return result;
+}
+
 // 判断单词是否可能不完整（被跨行截断）
 function isIncompleteWord(word: string): boolean {
   if (!word) return false;
   const trimmed = word.trim().toLowerCase();
   
-  // 常见的不完整模式
+  // 常见的不完整模式 - 这些单词单独出现通常是跨行的一部分
   const incompletePatterns = [
     /^into$/,
     /^sth$/,
@@ -223,9 +246,103 @@ function isIncompleteWord(word: string): boolean {
     /^was$/,
     /^were$/,
     /^been$/,
-    /^being$/
+    /^being$/,
+    /^than$/,
+    /^that$/,
+    /^this$/,
+    /^these$/,
+    /^those$/,
+    /^it$/,
+    /^its$/,
+    /^he$/,
+    /^she$/,
+    /^they$/,
+    /^we$/,
+    /^you$/,
+    /^me$/,
+    /^him$/,
+    /^her$/,
+    /^us$/,
+    /^them$/,
+    /^which$/,
+    /^what$/,
+    /^who$/,
+    /^whom$/,
+    /^whose$/,
+    /^when$/,
+    /^where$/,
+    /^why$/,
+    /^how$/,
+    /^can$/,
+    /^could$/,
+    /^may$/,
+    /^might$/,
+    /^must$/,
+    /^shall$/,
+    /^should$/,
+    /^will$/,
+    /^would$/,
+    /^do$/,
+    /^does$/,
+    /^did$/,
+    /^have$/,
+    /^has$/,
+    /^had$/,
+    /^been$/,
+    /^having$/,
+    /^go$/,
+    /^goes$/,
+    /^went$/,
+    /^going$/,
+    /^get$/,
+    /^gets$/,
+    /^got$/,
+    /^getting$/,
+    /^make$/,
+    /^makes$/,
+    /^made$/,
+    /^making$/,
+    /^take$/,
+    /^takes$/,
+    /^took$/,
+    /^taking$/,
+    /^give$/,
+    /^gives$/,
+    /^gave$/,
+    /^giving$/,
+    /^use$/,
+    /^uses$/,
+    /^used$/,
+    /^using$/
   ];
   
   // 如果单词是常见的介词、冠词、动词等，可能是不完整的
   return incompletePatterns.some(pattern => pattern.test(trimmed));
+}
+
+// 检查两个单词是否有相同的前缀（可能是跨行截断）
+function hasSamePrefix(word1: string, word2: string): boolean {
+  if (!word1 || !word2) return false;
+  
+  const w1 = word1.trim().toLowerCase();
+  const w2 = word2.trim().toLowerCase();
+  
+  // 如果第二个单词很短（2-3个字符），可能是第一个单词的延续
+  if (w2.length <= 3 && w1.length > 3) {
+    // 检查是否看起来像是短语的一部分
+    const commonPhrases = [
+      'translate', 'transform', 'transport', 'transfer', 'transmit',
+      'prepare', 'prevent', 'predict', 'produce', 'progress',
+      'convert', 'conserve', 'consider', 'construct', 'contain',
+      'include', 'increase', 'insist', 'install', 'instruct',
+      'describe', 'determine', 'develop', 'discover', 'discuss',
+      'improve', 'indicate', 'inform', 'involve', 'introduce',
+      'reduce', 'reflect', 'refuse', 'regard', 'remain',
+      'suggest', 'support', 'supply', 'suppose', 'survive'
+    ];
+    
+    return commonPhrases.some(prefix => w1.startsWith(prefix) || w2.startsWith(prefix));
+  }
+  
+  return false;
 }
