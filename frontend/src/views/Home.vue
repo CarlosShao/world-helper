@@ -86,21 +86,21 @@
             </template>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center">
+        <el-table-column label="操作" width="260" align="center">
           <template #default="{ row }">
             <template v-if="row.type !== 'group' && row.id && !row.isChild">
               <div class="action-buttons-row">
-                <el-button size="mini" @click="toggleChinese(row.id)" :class="hiddenChinese.has(row.id) ? 'btn-show' : 'btn-hide'">
-                  {{ hiddenChinese.has(row.id) ? '显示' : '隐藏' }}中文
+                <el-button size="mini" @click="toggleChinese(row.id)" :class="hiddenChinese.has(row.id) ? 'btn-show' : 'btn-hide'" :title="hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文'">
+                  {{ hiddenChinese.has(row.id) ? '显中' : '隐中' }}
                 </el-button>
-                <el-button size="mini" @click="toggleEnglish(row.id)" :class="hiddenEnglish.has(row.id) ? 'btn-show' : 'btn-hide'">
-                  {{ hiddenEnglish.has(row.id) ? '显示' : '隐藏' }}英文
+                <el-button size="mini" @click="toggleEnglish(row.id)" :class="hiddenEnglish.has(row.id) ? 'btn-show' : 'btn-hide'" :title="hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文'">
+                  {{ hiddenEnglish.has(row.id) ? '显英' : '隐英' }}
                 </el-button>
-                <el-button size="mini" type="warning" @click="resetWordClassification(row.id)">
-                  重新分类
+                <el-button size="mini" type="warning" @click="resetWordClassification(row.id)" title="重新分类">
+                  重分
                 </el-button>
-                <el-button size="mini" type="primary" @click="showManualClassification(row.id)">
-                  手动分类
+                <el-button size="mini" type="primary" @click="showManualClassification(row.id)" title="手动分类">
+                  手分
                 </el-button>
               </div>
             </template>
