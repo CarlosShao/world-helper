@@ -316,6 +316,20 @@ const loadWords = async () => {
   }
 }
 
+const loadFlatWords = async () => {
+  loading.value = true
+  try {
+    const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
+    tableData.value = res.data.words
+    total.value = res.data.total
+    words.value = res.data.words
+  } catch (error) {
+    ElMessage.error('加载数据失败')
+  } finally {
+    loading.value = false
+  }
+}
+
 const loadTreeData = async () => {
   loading.value = true
   try {
