@@ -22,6 +22,30 @@ export const wordApi = {
     return api.get('/words', { params: { page, pageSize, search } })
   },
   
+  getWordsTree: (search: string = '') => {
+    return api.get('/words/tree', { params: { search } })
+  },
+  
+  getRootWords: () => {
+    return api.get('/words/roots')
+  },
+  
+  addRelation: (rootWordId: number, childWordId: number, relationType: string) => {
+    return api.post('/relations', { rootWordId, childWordId, relationType })
+  },
+  
+  deleteRelation: (id: number) => {
+    return api.delete(`/relations/${id}`)
+  },
+  
+  removeWordRelations: (wordId: number) => {
+    return api.delete(`/relations/word/${wordId}`)
+  },
+  
+  classifyAll: (keepManual: boolean = false) => {
+    return api.post('/classify/all', { keepManual })
+  },
+  
   addErrorWord: (wordId: number) => {
     return api.post('/error-words', { wordId })
   },
