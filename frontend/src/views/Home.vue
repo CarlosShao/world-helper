@@ -57,7 +57,8 @@
               <el-icon style="margin-right: 4px;"><Edit /></el-icon>
               随手拼
             </el-button>
-            <el-button type="primary" @click="startAddNew" size="small" :icon="Plus">
+            <el-button type="primary" @click="startAddNew" size="small">
+              <el-icon><Plus /></el-icon>
               新增单词
             </el-button>
           </div>
@@ -87,7 +88,11 @@
                   <el-input v-model="editingValue" size="small" @blur="saveEdit(row)" @keyup.enter="saveEdit(row)" @keyup.esc="cancelEdit" ref="editInput" />
                 </template>
                 <template v-else>
-                  <span v-if="!hiddenEnglish.has(row.id)" class="word-text editable" @click="startEdit(row, 'english', $event)">{{ row.english }}</span>
+                  <span 
+                    v-if="!hiddenEnglish.has(row.id)" 
+                    class="word-text editable" 
+                    @click.stop="startEdit(row, 'english', $event)"
+                  >{{ row.english }}</span>
                   <span v-else class="hidden-text">****</span>
                 </template>
               </template>
@@ -100,8 +105,8 @@
                   <el-input v-model="editingValue" size="small" @blur="saveEdit(row)" @keyup.enter="saveEdit(row)" @keyup.esc="cancelEdit" />
                 </template>
                 <template v-else>
-                  <el-tag v-if="row.part_of_speech" size="small" type="info" class="editable" @click="startEdit(row, 'part_of_speech', $event)">{{ row.part_of_speech }}</el-tag>
-                  <span v-else class="editable" @click="startEdit(row, 'part_of_speech', $event)" style="color: #909399; font-size: 12px;">点击添加</span>
+                  <el-tag v-if="row.part_of_speech" size="small" type="info" class="editable" @click.stop="startEdit(row, 'part_of_speech', $event)">{{ row.part_of_speech }}</el-tag>
+                  <span v-else class="editable" @click.stop="startEdit(row, 'part_of_speech', $event)" style="color: #909399; font-size: 12px;">点击添加</span>
                 </template>
               </template>
             </template>
@@ -113,7 +118,7 @@
                   <el-input v-model="editingValue" size="small" @blur="saveEdit(row)" @keyup.enter="saveEdit(row)" @keyup.esc="cancelEdit" />
                 </template>
                 <template v-else>
-                  <span v-if="!hiddenChinese.has(row.id)" class="editable" @click="startEdit(row, 'chinese', $event)">{{ row.chinese }}</span>
+                  <span v-if="!hiddenChinese.has(row.id)" class="editable" @click.stop="startEdit(row, 'chinese', $event)">{{ row.chinese }}</span>
                   <span v-else class="hidden-text">****</span>
                 </template>
               </template>
