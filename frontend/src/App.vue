@@ -41,7 +41,9 @@
       <router-view />
     </el-main>
   </el-container>
-  <router-view v-else />
+  <div v-else>
+    <router-view />
+  </div>
 </template>
 
 <script setup lang="ts">
