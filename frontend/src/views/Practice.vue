@@ -28,7 +28,7 @@
       <div class="progress-bar">
         <div class="progress-info">
           <span class="progress-text">进度</span>
-          <span class="progress-count">{{ currentIndex + 1 }} / {{ words.length }}</span>
+          <span class="progress-count">{{ getProgressText() }}</span>
         </div>
         <el-progress 
           :percentage="Math.round((currentIndex / words.length) * 100)" 
@@ -122,6 +122,9 @@ import {
 import { wordApi, type Word } from '../api'
 
 const router = useRouter()
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 const words = ref<Word[]>([])
 const currentIndex = ref(0)
 const savedIndex = ref(0)
@@ -133,13 +136,27 @@ const checking = ref(false)
 const inputRef = ref()
 const sessionId = ref<number | null>(null)
 
+const fromIndex = ref<number | null>(null)
+const fromPage = ref<number | null>(null)
+const totalWords = ref(0)
+
 const loadWords = async () => {
   try {
     const res = await wordApi.getWords(1, 1000)
     words.value = res.data.words
+    totalWords.value = res.data.total || res.data.words.length
   } catch (error) {
     ElMessage.error('加载单词失败')
   }
+}
+
+const getProgressText = () => {
+  if (fromIndex.value !== null) {
+    const progress = currentIndex.value - fromIndex.value + 1
+    const total = totalWords.value - fromIndex.value
+    return `${progress} / ${total}`
+  }
+  return `${currentIndex.value + 1} / ${totalWords.value}`
 }
 
 const loadProgress = async () => {
@@ -208,10 +225,23 @@ const startPractice = async () => {
     router.push('/')
     return
   }
-  await loadProgress()
-  if (currentIndex.value >= words.value.length) {
-    currentIndex.value = 0
+  
+  const queryFromIndex = route.query.fromIndex
+  const queryFromPage = route.query.fromPage
+  
+  if (queryFromIndex !== undefined) {
+    fromIndex.value = parseInt(queryFromIndex as string)
+    currentIndex.value = fromIndex.value
+    if (queryFromPage !== undefined) {
+      fromPage.value = parseInt(queryFromPage as string)
+    }
+  } else {
+    await loadProgress()
+    if (currentIndex.value >= words.value.length) {
+      currentIndex.value = 0
+    }
   }
+  
   showCurrentWord()
 }
 
@@ -284,7 +314,11 @@ const goBack = () => {
 }
 
 const goHome = () => {
-  router.push('/')
+  if (fromPage.value !== null) {
+    router.push({ path: '/', query: { page: fromPage.value } })
+  } else {
+    router.push('/')
+  }
 }
 
 onMounted(() => {

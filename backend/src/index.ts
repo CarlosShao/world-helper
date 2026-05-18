@@ -294,6 +294,30 @@ async function startServer() {
     }
   });
 
+  // 获取单词的全局索引（按english排序）
+  app.get('/api/words/index/:wordId', (req, res) => {
+    const wordId = parseInt(req.params.wordId);
+    
+    try {
+      const result = get(`
+        SELECT COUNT(*) as index 
+        FROM words 
+        WHERE english < (SELECT english FROM words WHERE id = ?)
+        ORDER BY english
+      `, [wordId]);
+      
+      const total = get('SELECT COUNT(*) as total FROM words');
+      
+      res.json({
+        index: result?.index || 0,
+        total: total?.total || 0
+      });
+    } catch (error) {
+      console.error('Get word index error:', error);
+      res.status(500).json({ success: false, message: '获取索引失败' });
+    }
+  });
+
   // 添加新单词
   app.post('/api/words', (req, res) => {
     const { english, part_of_speech, chinese } = req.body;

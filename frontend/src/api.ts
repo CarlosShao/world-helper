@@ -22,6 +22,10 @@ export const wordApi = {
     return api.get('/words', { params: { page, pageSize, search } })
   },
   
+  getWordIndex: (wordId: number) => {
+    return api.get(`/words/index/${wordId}`)
+  },
+  
   getWordsTree: (search: string = '') => {
     return api.get('/words/tree', { params: { search } })
   },

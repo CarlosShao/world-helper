@@ -77,7 +77,11 @@
           @selection-change="handleSelectionChange"
         >
           <el-table-column type="selection" width="55" align="center" :selectable="checkSelectable" />
-          <el-table-column type="index" label="序号" width="70" align="center" />
+          <el-table-column label="序号" width="70" align="center">
+            <template #default="{ $index }">
+              {{ (currentPage - 1) * pageSize + $index + 1 }}
+            </template>
+          </el-table-column>
           <el-table-column label="英文" width="220" show-overflow-tooltip>
             <template #default="{ row }">
               <template v-if="row.type === 'group'">
@@ -432,6 +436,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Search, View, Hide, Edit, Upload, 
@@ -835,10 +840,16 @@ const cancelEdit = () => {
 // 从指定单词开始随手拼
 const startPracticeFromWord = async (wordId: number) => {
   try {
-    const index = words.value.findIndex(w => w.id === wordId)
-    if (index !== -1) {
-      await wordApi.saveSetting('practiceIndex', index.toString())
-      router.push('/practice')
+    const res = await wordApi.getWordIndex(wordId)
+    if (res.data && res.data.index !== undefined) {
+      router.push({
+        path: '/practice',
+        query: {
+          fromWord: wordId,
+          fromIndex: res.data.index,
+          fromPage: currentPage.value
+        }
+      })
     }
   } catch (error) {
     ElMessage.error('无法开始练习')
@@ -874,7 +885,13 @@ const cancelAddNew = () => {
   newWord.value = { english: '', part_of_speech: '', chinese: '' }
 }
 
+const route = useRoute()
+
 onMounted(() => {
+  const pageParam = route.query.page
+  if (pageParam) {
+    currentPage.value = parseInt(pageParam as string)
+  }
   loadWords()
   loadPartsOfSpeech()
 })
