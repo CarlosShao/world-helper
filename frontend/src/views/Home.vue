@@ -85,7 +85,7 @@
               </template>
               <template v-else-if="row.id">
                 <template v-if="editingId === row.id && editingField === 'english'">
-                  <el-input v-model="editingValue" size="small" @blur="saveEdit(row)" @keyup.enter="saveEdit(row)" @keyup.esc="cancelEdit" ref="editInput" />
+                  <el-input v-model="editingValue" size="small" @blur="saveEdit()" @keyup.enter="saveEdit()" @keyup.esc="cancelEdit" ref="editInput" />
                 </template>
                 <template v-else>
                   <span 
@@ -102,7 +102,7 @@
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
                 <template v-if="editingId === row.id && editingField === 'part_of_speech'">
-                  <el-input v-model="editingValue" size="small" @blur="saveEdit(row)" @keyup.enter="saveEdit(row)" @keyup.esc="cancelEdit" />
+                  <el-input v-model="editingValue" size="small" @blur="saveEdit()" @keyup.enter="saveEdit()" @keyup.esc="cancelEdit" />
                 </template>
                 <template v-else>
                   <el-tag v-if="row.part_of_speech" size="small" type="info" class="editable" @click.stop="startEdit(row, 'part_of_speech', $event)">{{ row.part_of_speech }}</el-tag>
@@ -115,7 +115,7 @@
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
                 <template v-if="editingId === row.id && editingField === 'chinese'">
-                  <el-input v-model="editingValue" size="small" @blur="saveEdit(row)" @keyup.enter="saveEdit(row)" @keyup.esc="cancelEdit" />
+                  <el-input v-model="editingValue" size="small" @blur="saveEdit()" @keyup.enter="saveEdit()" @keyup.esc="cancelEdit" />
                 </template>
                 <template v-else>
                   <span v-if="!hiddenChinese.has(row.id)" class="editable" @click.stop="startEdit(row, 'chinese', $event)">{{ row.chinese }}</span>
@@ -455,6 +455,7 @@ const importErrors = ref<any[]>([])
 const editingId = ref<number | null>(null)
 const editingField = ref<string>('')
 const editingValue = ref<string>('')
+const editingRow = ref<any>(null)
 
 // 添加新单词
 const addingNew = ref(false)
@@ -811,17 +812,18 @@ const startEdit = (row: any, field: string, event: Event) => {
   editingId.value = row.id
   editingField.value = field
   editingValue.value = row[field] || ''
-  // 点击编辑时暂停事件冒泡防止触发展开/收起
+  editingRow.value = { ...row }
   event.stopPropagation()
 }
 
 // 保存编辑
-const saveEdit = async (row: any) => {
-  if (!editingId.value || !editingField.value) return
+const saveEdit = async () => {
+  if (!editingId.value || !editingField.value || !editingRow.value) return
   try {
+    const row = editingRow.value
     const data = {
       english: editingField.value === 'english' ? editingValue.value : row.english,
-      part_of_speech: editingField.value === 'part_of_speech' ? editingValue.value : row.part_of_speech || '',
+      part_of_speech: editingField.value === 'part_of_speech' ? editingValue.value : (row.part_of_speech || ''),
       chinese: editingField.value === 'chinese' ? editingValue.value : row.chinese
     }
     await wordApi.updateWord(editingId.value, data)
@@ -833,6 +835,7 @@ const saveEdit = async (row: any) => {
   editingId.value = null
   editingField.value = ''
   editingValue.value = ''
+  editingRow.value = null
 }
 
 // 取消编辑
