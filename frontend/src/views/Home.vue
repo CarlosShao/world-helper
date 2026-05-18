@@ -127,34 +127,32 @@
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="260" align="center" fixed="right">
+          <el-table-column label="操作" width="380" align="center" fixed="right">
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id && !row.isChild">
                 <div class="action-buttons-row">
-                  <el-button size="mini" type="success" @click="startPracticeFromWord(row.id)">
+                  <el-tooltip :content="hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文'" placement="top">
+                    <el-button size="small" @click="toggleChinese(row.id)" :type="hiddenChinese.has(row.id) ? 'info' : 'default'">
+                      <el-icon><View /></el-icon>
+                    </el-button>
+                  </el-tooltip>
+                  <el-tooltip :content="hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文'" placement="top">
+                    <el-button size="small" @click="toggleEnglish(row.id)" :type="hiddenEnglish.has(row.id) ? 'info' : 'default'">
+                      <el-icon><Hide /></el-icon>
+                    </el-button>
+                  </el-tooltip>
+                  <el-button size="small" type="success" @click="startPracticeFromWord(row.id)">
                     <el-icon><EditPen /></el-icon>
                     随手拼
                   </el-button>
-                  <el-button size="mini" type="danger" @click="deleteWord(row)">
-                    <el-icon><Delete /></el-icon>
-                    删除
-                  </el-button>
-                  <el-dropdown trigger="click">
-                    <el-button size="mini">
-                      <el-icon><More /></el-icon>
-                      更多
+                  <el-dropdown trigger="click" size="small">
+                    <el-button size="small" type="warning">
+                      <el-icon><Setting /></el-icon>
+                      管理
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
-                        <el-dropdown-item @click="toggleChinese(row.id)">
-                          <el-icon><View /></el-icon>
-                          {{ hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文' }}
-                        </el-dropdown-item>
-                        <el-dropdown-item @click="toggleEnglish(row.id)">
-                          <el-icon><Hide /></el-icon>
-                          {{ hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文' }}
-                        </el-dropdown-item>
-                        <el-dropdown-item divided @click="resetWordClassification(row.id)">
+                        <el-dropdown-item @click="resetWordClassification(row.id)">
                           <el-icon><Refresh /></el-icon>
                           重新分类
                         </el-dropdown-item>
@@ -165,6 +163,10 @@
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
+                  <el-button size="small" type="danger" @click="deleteWord(row)">
+                    <el-icon><Delete /></el-icon>
+                    删除
+                  </el-button>
                 </div>
               </template>
             </template>
