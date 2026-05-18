@@ -550,6 +550,9 @@ const batchDeleteSelected = async () => {
 const loadWords = async () => {
   loading.value = true
   try {
+    if (currentPage.value > 1 && !searchText.value) {
+      currentPage.value = 1
+    }
     const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
     tableData.value = res.data.words
     total.value = res.data.total
