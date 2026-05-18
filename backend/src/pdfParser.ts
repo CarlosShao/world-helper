@@ -164,8 +164,18 @@ export async function parsePdf(filePath: string): Promise<ParseResult> {
 }
 
 function cleanFooterData(text: string): string {
-  // 页脚脏数据模式
+  // 页脚脏数据模式 - 按照匹配优先级排序
   const footerPatterns = [
+    // 针对当前问题的精确模式
+    /\s+[Ss]hao\s+[Yy]e\s+的\s+词表\s+全部\s+共\s+\d+\s+词\s+\d+\/\d+\s+页\s+扫描二维码/g,
+    /\s+[Ss]hao\s+[Yy]e\s+的\s+词表.*扫描二维码/g,
+    /\s+词表\s+全部\s+共\s+\d+\s+词.*扫描二维码/g,
+    // 更通用的模式
+    /\s+[Ss]hao\s*[Yy]e\s*的\s*词表.*共\s*\d+\s*词\s*\d+\/\d+\s*页\s*扫描二维码/g,
+    /\s+词表全部\s*共\s*\d+\s*词\s*\d+\/\d+\s*页\s*扫描二维码/g,
+    /\s+[Ss]hao\s*[Yy]e.*二维码/g,
+    /\s+词表.*二维码/g,
+    // 原始模式
     /全部已学.*复习完成.*共.*词.*\/.*页/g,
     /已学.*复习完成/g,
     /共\s*\d+\s*词\s*\d+\/\d+\s*页/g,
@@ -180,7 +190,6 @@ function cleanFooterData(text: string): string {
     /Shao Ye.*词表.*共.*词.*\/.*页.*二维码/g,
     /词表全部.*共.*词/g,
     /扫描二维码/g,
-    // 更通用的模式
     /[Ss]hao\s*[Yy]e.*词表.*共.*词/g,
     /词表全部.*共.*词.*页/g,
     /共\s*\d+\s*词.*页.*二维码/g,
