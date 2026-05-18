@@ -98,6 +98,18 @@ export async function initDb(): Promise<SqlJsDatabase> {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS import_error_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      import_file_id INTEGER NOT NULL,
+      index_number INTEGER NOT NULL,
+      english TEXT,
+      reason TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (import_file_id) REFERENCES import_files(id)
+    )
+  `);
+
   const existingRules = all('SELECT COUNT(*) as count FROM classification_rules');
   if (existingRules[0]?.count === 0) {
     const rules = [

@@ -69,7 +69,19 @@ async function startServer() {
       }
 
       const filePath = req.file.path;
-      const words = await parsePdf(filePath);
+      const parseResult = await parsePdf(filePath);
+      const { words, errors } = parseResult;
+
+      // 先插入导入文件记录，获取ID
+      run('INSERT INTO import_files (filename) VALUES (?)', [req.file.originalname]);
+      const importFileResult = get('SELECT last_insert_rowid() as id');
+      const importFileId = importFileResult?.id || 0;
+
+      // 保存错误日志
+      for (const error of errors) {
+        run('INSERT INTO import_error_logs (import_file_id, index_number, english, reason) VALUES (?, ?, ?, ?)',
+            [importFileId, error.index, error.english, error.reason]);
+      }
 
       // 清空现有单词
       run('DELETE FROM word_relations');
@@ -81,7 +93,6 @@ async function startServer() {
             [word.english, word.part_of_speech, word.chinese]);
       }
       
-      run('INSERT INTO import_files (filename) VALUES (?)', [req.file.originalname]);
       saveDb();
 
       // 后台触发自动分类
@@ -140,11 +151,42 @@ async function startServer() {
         }
       }, 500);
 
-      res.json({ success: true, count: words.length, words });
+      res.json({ success: true, count: words.length, errorCount: errors.length, errors });
     } catch (error) {
       console.error('Import error:', error);
       res.status(500).json({ error: 'Failed to import file' });
     }
+  });
+
+  // 获取导入错误日志
+  app.get('/api/import-errors', (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const errors = all(`
+      SELECT 
+        import_error_logs.*,
+        import_files.filename,
+        import_files.imported_at
+      FROM import_error_logs 
+      LEFT JOIN import_files ON import_error_logs.import_file_id = import_files.id
+      ORDER BY import_error_logs.created_at DESC
+      LIMIT ?
+    `, [limit]);
+    res.json({ success: true, errors });
+  });
+
+  // 获取最近的导入记录及错误统计
+  app.get('/api/import-stats', (req, res) => {
+    const recentImports = all(`
+      SELECT 
+        import_files.*,
+        COUNT(import_error_logs.id) as error_count
+      FROM import_files
+      LEFT JOIN import_error_logs ON import_files.id = import_error_logs.import_file_id
+      GROUP BY import_files.id
+      ORDER BY import_files.imported_at DESC
+      LIMIT 10
+    `);
+    res.json({ success: true, imports: recentImports });
   });
 
   // 获取单词列表（分页）

@@ -1,12 +1,26 @@
 import pdf from 'pdf-parse';
 
-export async function parsePdf(filePath: string): Promise<Array<{ english: string; part_of_speech: string; chinese: string }>> {
+export interface ParseError {
+  index: number;
+  english: string | null;
+  reason: string;
+}
+
+export interface ParseResult {
+  words: Array<{ english: string; part_of_speech: string; chinese: string }>;
+  errors: ParseError[];
+}
+
+export async function parsePdf(filePath: string): Promise<ParseResult> {
   const dataBuffer = require('fs').readFileSync(filePath);
   const data = await pdf(dataBuffer);
   
   const lines = data.text.split('\n').map(line => line.trim()).filter(line => line);
   
   console.log(`总 ${lines.length} 行`);
+  
+  // 错误日志
+  const errors: ParseError[] = [];
   
   // 找到所有WordMeaning的位置
   const wordMeaningPositions: number[] = [];
@@ -20,7 +34,7 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   
   if (wordMeaningPositions.length < 2) {
     console.log('WordMeaning标记太少');
-    return [];
+    return { words: [], errors: [] };
   }
   
   // 收集所有英语词汇和释义
@@ -64,18 +78,55 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   
   // 合并结果
   const words: Array<{ english: string; part_of_speech: string; chinese: string }> = [];
-  const maxIndex = Math.max(...Array.from(englishMap.keys()));
+  const maxIndex = Math.max(...Array.from(englishMap.keys()), ...Array.from(meaningMap.keys()));
   
   for (let i = 1; i <= maxIndex; i++) {
     const englishParts = englishMap.get(i);
     const meaningParts = meaningMap.get(i);
     
-    if (!englishParts || !meaningParts) {
+    // 如果英语和释义都缺失，跳过并记录错误
+    if (!englishParts && !meaningParts) {
+      console.log(`序号${i}: 英语和释义都缺失，跳过`);
+      errors.push({
+        index: i,
+        english: null,
+        reason: '英语和释义都为空（PDF源文件缺失该序号数据）'
+      });
       continue;
     }
     
-    const english = englishParts.join(' ').trim();
-    let meaning = meaningParts.join(' ').trim();
+    // 如果只有英语没有释义，标记为待补充并记录错误
+    if (englishParts && !meaningParts) {
+      const english = englishParts.join(' ').trim();
+      if (/^\d+$/.test(english)) continue;
+      console.log(`序号${i}: 英语="${english}"，释义缺失，标记为待补充`);
+      errors.push({
+        index: i,
+        english: english,
+        reason: '有英语但释义为空'
+      });
+      words.push({
+        english,
+        part_of_speech: '',
+        chinese: '[待补充释义]'
+      });
+      continue;
+    }
+    
+    // 如果只有释义没有英语，记录错误
+    if (!englishParts && meaningParts) {
+      const meaning = meaningParts.join(' ').trim();
+      console.log(`序号${i}: 释义存在但英语缺失，跳过`);
+      errors.push({
+        index: i,
+        english: null,
+        reason: '有释义但英语为空'
+      });
+      continue;
+    }
+    
+    const english = englishParts!.join(' ').trim();
+    let meaning = meaningParts!.join(' ').trim();
     
     console.log(`序号${i}: 英语="${english}"，释义="${meaning}"`);
     
@@ -107,7 +158,9 @@ export async function parsePdf(filePath: string): Promise<Array<{ english: strin
   }
   
   console.log(`共合并出 ${words.length} 个单词`);
-  return words;
+  console.log(`共发现 ${errors.length} 个解析错误`);
+  
+  return { words, errors };
 }
 
 function cleanFooterData(text: string): string {

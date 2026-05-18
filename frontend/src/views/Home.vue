@@ -22,6 +22,10 @@
                 <el-icon><Upload /></el-icon>
                 导入
               </el-button>
+              <el-button type="info" @click="showImportLogs" size="small">
+                <el-icon><Document /></el-icon>
+                导入日志
+              </el-button>
             </div>
           </div>
           <div class="search-bar">
@@ -277,6 +281,77 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 导入日志对话框 -->
+    <el-dialog
+      v-model="importLogsVisible"
+      title="导入日志"
+      width="800px"
+      class="import-logs-dialog"
+    >
+      <div v-if="loadingImportLogs" style="text-align: center; padding: 40px;">
+        <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+        <p>加载中...</p>
+      </div>
+      <div v-else>
+        <div class="import-stats">
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-card shadow="hover">
+                <template #header>
+                  <span>最近导入记录</span>
+                </template>
+                <div v-if="importStats.length > 0">
+                  <div v-for="item in importStats" :key="item.id" class="import-item">
+                    <div class="import-item-header">
+                      <el-tag type="info" size="small">{{ item.filename }}</el-tag>
+                      <span class="import-time">{{ formatTime(item.imported_at) }}</span>
+                    </div>
+                    <div class="import-item-stats">
+                      <el-tag v-if="item.error_count > 0" type="danger" size="small">
+                        错误 {{ item.error_count }} 条
+                      </el-tag>
+                      <el-tag v-else type="success" size="small">无错误</el-tag>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="empty-text">暂无导入记录</div>
+              </el-card>
+            </el-col>
+            <el-col :span="12">
+              <el-card shadow="hover">
+                <template #header>
+                  <span>错误详情</span>
+                </template>
+                <div v-if="importErrors.length > 0" class="error-list">
+                  <el-scrollbar height="300px">
+                    <div v-for="error in importErrors" :key="error.id" class="error-item">
+                      <div class="error-header">
+                        <el-tag type="warning" size="small">序号 {{ error.index_number }}</el-tag>
+                        <span v-if="error.english" class="error-english">{{ error.english }}</span>
+                        <span class="error-time">{{ formatTime(error.created_at) }}</span>
+                      </div>
+                      <div class="error-reason">{{ error.reason }}</div>
+                    </div>
+                  </el-scrollbar>
+                </div>
+                <div v-else class="empty-text">暂无错误</div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="importLogsVisible = false">关闭</el-button>
+          <el-button type="primary" @click="loadImportLogs">
+            <el-icon style="margin-right: 6px;"><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -286,7 +361,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Search, View, Hide, Edit, Upload, 
   DocumentAdd, Notebook, Document, Refresh,
-  Delete
+  Delete, Loading
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { wordApi, type Word } from '../api'
@@ -318,6 +393,11 @@ const manualSearchText = ref('')
 const availableWords = ref<any[]>([])
 const selectedRelationType = ref('derivative')
 const selectedWords = ref<any[]>([])
+
+const importLogsVisible = ref(false)
+const loadingImportLogs = ref(false)
+const importStats = ref<any[]>([])
+const importErrors = ref<any[]>([])
 
 const checkSelectable = (row: any) => {
   return row.type !== 'group' && row.id && !row.isChild
@@ -620,6 +700,44 @@ const closeManualClassification = () => {
   currentWordData.value = null
   manualSearchText.value = ''
   selectedRelationType.value = 'derivative'
+}
+
+const showImportLogs = async () => {
+  importLogsVisible.value = true
+  await loadImportLogs()
+}
+
+const loadImportLogs = async () => {
+  loadingImportLogs.value = true
+  try {
+    const [statsRes, errorsRes] = await Promise.all([
+      fetch('/api/import-stats').then(r => r.json()),
+      fetch('/api/import-errors').then(r => r.json())
+    ])
+    if (statsRes.success) {
+      importStats.value = statsRes.imports
+    }
+    if (errorsRes.success) {
+      importErrors.value = errorsRes.errors
+    }
+  } catch (error) {
+    console.error('加载导入日志失败:', error)
+    ElMessage.error('加载导入日志失败')
+  } finally {
+    loadingImportLogs.value = false
+  }
+}
+
+const formatTime = (timeStr: string) => {
+  if (!timeStr) return ''
+  const date = new Date(timeStr)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 onMounted(() => {
@@ -981,5 +1099,79 @@ onMounted(() => {
 .word-pos {
   font-size: 12px;
   color: #909399;
+}
+
+.empty-text {
+  text-align: center;
+  color: #909399;
+  padding: 20px;
+}
+
+.import-stats {
+  padding: 8px 0;
+}
+
+.import-item {
+  padding: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.import-item:last-child {
+  border-bottom: none;
+}
+
+.import-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.import-time {
+  font-size: 12px;
+  color: #909399;
+}
+
+.import-item-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.error-list {
+  padding: 4px 0;
+}
+
+.error-item {
+  padding: 12px;
+  border-bottom: 1px solid #ebeef5;
+  background: #fff5f5;
+}
+
+.error-item:last-child {
+  border-bottom: none;
+}
+
+.error-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.error-english {
+  font-weight: 500;
+  color: #303133;
+}
+
+.error-time {
+  font-size: 12px;
+  color: #909399;
+  margin-left: auto;
+}
+
+.error-reason {
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.5;
 }
 </style>
