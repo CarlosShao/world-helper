@@ -558,10 +558,6 @@ const handleSearchClear = () => {
 const loadWords = async () => {
   loading.value = true
   try {
-    // 如果搜索为空且当前不是第1页，强制重置到第1页
-    if (!searchText.value && currentPage.value > 1) {
-      currentPage.value = 1
-    }
     const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
     tableData.value = res.data.words
     total.value = res.data.total
