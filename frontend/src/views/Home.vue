@@ -131,7 +131,7 @@
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="380" align="center" fixed="right">
+          <el-table-column label="操作" width="380" align="left" fixed="right">
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
                 <div class="action-buttons-row">
@@ -167,7 +167,6 @@
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
-                  <span class="action-placeholder" v-if="(!row.isChild && row.hasParent) || row.isChild"></span>
                   <el-button size="small" type="danger" @click="deleteWord(row)">
                     <el-icon><Delete /></el-icon>
                     删除
@@ -1131,7 +1130,7 @@ onMounted(() => {
 .action-buttons-row {
   display: flex;
   gap: 8px;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
 }
 
@@ -1139,10 +1138,7 @@ onMounted(() => {
   padding: 4px 12px;
   font-size: 12px;
   border-radius: 4px;
-}
-
-.action-placeholder {
-  width: 52px;
+  white-space: nowrap;
 }
 
 .pagination-wrapper {
