@@ -300,7 +300,7 @@ async function startServer() {
     
     try {
       const result = get(`
-        SELECT COUNT(*) as index 
+        SELECT COUNT(*) as word_index 
         FROM words 
         WHERE english < (SELECT english FROM words WHERE id = ?)
         ORDER BY english
@@ -309,7 +309,7 @@ async function startServer() {
       const total = get('SELECT COUNT(*) as total FROM words');
       
       res.json({
-        index: result?.index || 0,
+        index: result?.word_index || 0,
         total: total?.total || 0
       });
     } catch (error) {
