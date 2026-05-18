@@ -78,7 +78,7 @@
         >
           <el-table-column type="selection" width="50" align="center" :selectable="checkSelectable" />
           <el-table-column type="index" label="序号" width="70" align="center" />
-          <el-table-column label="英文" min-width="180">
+          <el-table-column label="英文" width="180" show-overflow-tooltip>
             <template #default="{ row }">
               <template v-if="row.type === 'group'">
                 <el-tag size="small" type="warning">{{ row.title }}</el-tag>
@@ -114,7 +114,7 @@
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="中文" min-width="200">
+          <el-table-column label="中文" width="400" show-overflow-tooltip>
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
                 <template v-if="editingId === row.id && editingField === 'chinese'">
