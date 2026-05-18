@@ -57,6 +57,9 @@
               <el-icon style="margin-right: 4px;"><Edit /></el-icon>
               随手拼
             </el-button>
+            <el-button type="primary" @click="startAddNew" size="small" :icon="Plus">
+              新增单词
+            </el-button>
           </div>
         </div>
       </template>
@@ -80,21 +83,39 @@
                 <el-tag size="small" type="warning">{{ row.title }}</el-tag>
               </template>
               <template v-else-if="row.id">
-                <span v-if="!hiddenEnglish.has(row.id)" class="word-text">{{ row.english }}</span>
-                <span v-else class="hidden-text">****</span>
+                <template v-if="editingId === row.id && editingField === 'english'">
+                  <el-input v-model="editingValue" size="small" @blur="saveEdit(row)" @keyup.enter="saveEdit(row)" @keyup.esc="cancelEdit" ref="editInput" />
+                </template>
+                <template v-else>
+                  <span v-if="!hiddenEnglish.has(row.id)" class="word-text editable" @click="startEdit(row, 'english', $event)">{{ row.english }}</span>
+                  <span v-else class="hidden-text">****</span>
+                </template>
               </template>
             </template>
           </el-table-column>
           <el-table-column label="词性" width="150" align="left">
             <template #default="{ row }">
-              <el-tag v-if="row.part_of_speech && row.type !== 'group'" size="small" type="info">{{ row.part_of_speech }}</el-tag>
+              <template v-if="row.type !== 'group' && row.id">
+                <template v-if="editingId === row.id && editingField === 'part_of_speech'">
+                  <el-input v-model="editingValue" size="small" @blur="saveEdit(row)" @keyup.enter="saveEdit(row)" @keyup.esc="cancelEdit" />
+                </template>
+                <template v-else>
+                  <el-tag v-if="row.part_of_speech" size="small" type="info" class="editable" @click="startEdit(row, 'part_of_speech', $event)">{{ row.part_of_speech }}</el-tag>
+                  <span v-else class="editable" @click="startEdit(row, 'part_of_speech', $event)" style="color: #909399; font-size: 12px;">点击添加</span>
+                </template>
+              </template>
             </template>
           </el-table-column>
           <el-table-column label="中文" min-width="200">
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
-                <span v-if="!hiddenChinese.has(row.id)">{{ row.chinese }}</span>
-                <span v-else class="hidden-text">****</span>
+                <template v-if="editingId === row.id && editingField === 'chinese'">
+                  <el-input v-model="editingValue" size="small" @blur="saveEdit(row)" @keyup.enter="saveEdit(row)" @keyup.esc="cancelEdit" />
+                </template>
+                <template v-else>
+                  <span v-if="!hiddenChinese.has(row.id)" class="editable" @click="startEdit(row, 'chinese', $event)">{{ row.chinese }}</span>
+                  <span v-else class="hidden-text">****</span>
+                </template>
               </template>
             </template>
           </el-table-column>
@@ -128,6 +149,32 @@
           </el-table-column>
         </el-table>
       </div>
+
+      <!-- 添加新单词行 -->
+      <template v-if="addingNew" class="new-word-row">
+        <el-row :gutter="10" style="margin: 12px 0; padding: 12px; background: #f5f7fa; border-radius: 8px;">
+          <el-col :span="16" style="margin-left: 60px;">
+            <div style="color: #909399; font-size: 14px;">新增单词</div>
+          </el-col>
+          <el-col :span="6">
+            <el-input v-model="newWord.english" placeholder="英文" size="small" />
+          </el-col>
+          <el-col :span="4">
+            <el-input v-model="newWord.part_of_speech" placeholder="词性" size="small" />
+          </el-col>
+          <el-col :span="6">
+            <el-input v-model="newWord.chinese" placeholder="中文" size="small" />
+          </el-col>
+          <el-col :span="5">
+            <el-button type="primary" size="small" @click="saveNewWord">
+              保存
+            </el-button>
+            <el-button size="small" @click="cancelAddNew">
+              取消
+            </el-button>
+          </el-col>
+        </el-row>
+      </template>
 
       <div class="pagination-wrapper">
         <el-pagination
@@ -361,7 +408,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Search, View, Hide, Edit, Upload, 
   DocumentAdd, Notebook, Document, Refresh,
-  Delete, Loading
+  Delete, Loading, Plus
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { wordApi, type Word } from '../api'
@@ -398,6 +445,19 @@ const importLogsVisible = ref(false)
 const loadingImportLogs = ref(false)
 const importStats = ref<any[]>([])
 const importErrors = ref<any[]>([])
+
+// 编辑功能
+const editingId = ref<number | null>(null)
+const editingField = ref<string>('')
+const editingValue = ref<string>('')
+
+// 添加新单词
+const addingNew = ref(false)
+const newWord = ref({
+  english: '',
+  part_of_speech: '',
+  chinese: ''
+})
 
 const checkSelectable = (row: any) => {
   return row.type !== 'group' && row.id && !row.isChild
@@ -740,6 +800,72 @@ const formatTime = (timeStr: string) => {
   })
 }
 
+// 开始编辑单元格
+const startEdit = (row: any, field: string, event: Event) => {
+  if (row.type === 'group' || !row.id) return
+  editingId.value = row.id
+  editingField.value = field
+  editingValue.value = row[field] || ''
+  // 点击编辑时暂停事件冒泡防止触发展开/收起
+  event.stopPropagation()
+}
+
+// 保存编辑
+const saveEdit = async (row: any) => {
+  if (!editingId.value || !editingField.value) return
+  try {
+    const data = {
+      english: editingField.value === 'english' ? editingValue.value : row.english,
+      part_of_speech: editingField.value === 'part_of_speech' ? editingValue.value : row.part_of_speech || '',
+      chinese: editingField.value === 'chinese' ? editingValue.value : row.chinese
+    }
+    await wordApi.updateWord(editingId.value, data)
+    ElMessage.success('保存成功')
+    await loadWords()
+  } catch (error) {
+    ElMessage.error('保存失败')
+  }
+  editingId.value = null
+  editingField.value = ''
+  editingValue.value = ''
+}
+
+// 取消编辑
+const cancelEdit = () => {
+  editingId.value = null
+  editingField.value = ''
+  editingValue.value = ''
+}
+
+// 开始添加新单词
+const startAddNew = () => {
+  addingNew.value = true
+  newWord.value = { english: '', part_of_speech: '', chinese: '' }
+}
+
+// 保存新单词
+const saveNewWord = async () => {
+  if (!newWord.value.english || !newWord.value.chinese) {
+    ElMessage.warning('请填写英文和中文')
+    return
+  }
+  try {
+    await wordApi.addWord(newWord.value)
+    ElMessage.success('添加成功')
+    addingNew.value = false
+    newWord.value = { english: '', part_of_speech: '', chinese: '' }
+    await loadWords()
+  } catch (error) {
+    ElMessage.error('添加失败')
+  }
+}
+
+// 取消添加
+const cancelAddNew = () => {
+  addingNew.value = false
+  newWord.value = { english: '', part_of_speech: '', chinese: '' }
+}
+
 onMounted(() => {
   loadWords()
 })
@@ -811,6 +937,22 @@ onMounted(() => {
 .hidden-text {
   color: #c0c4cc;
   letter-spacing: 2px;
+}
+
+.editable {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.editable:hover {
+  background: #ecf5ff;
+}
+
+.new-word-row {
+  display: flex;
+  align-items: center;
 }
 
 .table-wrapper {

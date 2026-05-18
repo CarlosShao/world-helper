@@ -104,5 +104,13 @@ export const wordApi = {
   
   batchDeleteWords: (wordIds: number[]) => {
     return api.post('/words/batch-delete', { wordIds })
+  },
+
+  updateWord: (wordId: number, data: { english: string, part_of_speech: string, chinese: string }) => {
+    return api.put(`/words/${wordId}`, data)
+  },
+
+  addWord: (data: { english: string, part_of_speech: string, chinese: string }) => {
+    return api.post('/words', data)
   }
 }

@@ -218,6 +218,49 @@ async function startServer() {
     });
   });
 
+  // 更新单词
+  app.put('/api/words/:id', (req, res) => {
+    const wordId = parseInt(req.params.id);
+    const { english, part_of_speech, chinese } = req.body;
+    
+    try {
+      if (!english || !chinese) {
+        return res.status(400).json({ success: false, message: '英文和中文不能为空' });
+      }
+      
+      run('UPDATE words SET english = ?, part_of_speech = ?, chinese = ? WHERE id = ?',
+          [english, part_of_speech || '', chinese, wordId]);
+      saveDb();
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Update word error:', error);
+      res.status(500).json({ success: false, message: '更新失败' });
+    }
+  });
+
+  // 添加新单词
+  app.post('/api/words', (req, res) => {
+    const { english, part_of_speech, chinese } = req.body;
+    
+    try {
+      if (!english || !chinese) {
+        return res.status(400).json({ success: false, message: '英文和中文不能为空' });
+      }
+      
+      run('INSERT INTO words (english, part_of_speech, chinese, is_classified) VALUES (?, ?, ?, 0)',
+          [english, part_of_speech || '', chinese]);
+      saveDb();
+      
+      const newWord = get('SELECT * FROM words ORDER BY id DESC LIMIT 1');
+      
+      res.json({ success: true, word: newWord });
+    } catch (error) {
+      console.error('Add word error:', error);
+      res.status(500).json({ success: false, message: '添加失败' });
+    }
+  });
+
   // 删除单词
   app.delete('/api/words/:id', (req, res) => {
     const wordId = parseInt(req.params.id);
