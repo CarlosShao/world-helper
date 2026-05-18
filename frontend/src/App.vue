@@ -6,18 +6,25 @@
           <el-menu-item index="/">首页</el-menu-item>
           <el-menu-item index="/error-words">错题集</el-menu-item>
           <el-menu-item index="/yesterday-errors">昨日错词巩固</el-menu-item>
-          <el-menu-item index="/settings">
-            <template #icon>
-              <el-icon><Tools /></el-icon>
-            </template>
-            设置
-          </el-menu-item>
         </el-menu>
         <div class="user-info">
           <span class="username">
             <el-icon><User /></el-icon>
             {{ username }}
           </span>
+          <el-dropdown>
+            <el-button type="primary" size="small" circle>
+              <el-icon><Setting /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="router.push('/settings')">
+                  <el-icon><Tools /></el-icon>
+                  词性配置
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <el-button 
             type="danger" 
             size="small" 
@@ -41,7 +48,7 @@
 import { computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { User, SwitchButton, Tools } from '@element-plus/icons-vue'
+import { User, SwitchButton, Setting, Tools } from '@element-plus/icons-vue'
 import { useAuth } from './composables/useAuth'
 
 const route = useRoute()
