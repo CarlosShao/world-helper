@@ -10,13 +10,13 @@ echo ========================================
 echo.
 
 REM 询问是否开启内网穿透
-echo [0/7] 配置启动选项...
+echo [0/6] 配置启动选项...
 set /p use_cpolar="是否开启内网穿透(Y/N)？"
 
 echo.
 
 REM 检查Docker是否在运行
-echo [1/7] 检查Docker状态...
+echo [1/6] 检查Docker状态...
 tasklist /FI "IMAGENAME eq Docker Desktop.exe" 2>NUL | find /I /N "Docker Desktop.exe">NUL
 if "%ERRORLEVEL%"=="0" (
     echo √ Docker Desktop 已在运行
@@ -30,7 +30,7 @@ if "%ERRORLEVEL%"=="0" (
 echo.
 
 REM 切换到项目目录
-echo [2/7] 切换到项目目录...
+echo [2/6] 切换到项目目录...
 cd /d "D:\work\java\freework-workspace\world-helper"
 if errorlevel 1 (
     echo × 切换目录失败！请检查项目路径
@@ -41,11 +41,9 @@ echo √ 已切换到项目目录
 
 echo.
 
-REM 使用PowerShell脚本自动处理SSH密钥和拉取代码
-echo [3/7] 拉取最新代码...
-echo   正在通过PowerShell处理Git拉取...
-powershell -ExecutionPolicy Bypass -File "%~dp0git_pull.ps1"
-
+REM 拉取最新代码
+echo [3/6] 拉取最新代码...
+git fetch origin
 if errorlevel 1 (
     echo × Git拉取失败！
     pause
@@ -66,7 +64,7 @@ echo √ 已更新到最新代码
 echo.
 
 REM 停止并清理旧的Docker容器和镜像
-echo [4/7] 清理旧容器和镜像...
+echo [4/6] 清理旧容器和镜像...
 docker-compose down 2>nul
 docker rmi -f world-helper_word-helper 2>nul
 docker builder prune -f
@@ -75,7 +73,7 @@ echo √ 已清理旧容器和镜像
 echo.
 
 REM 重新构建并启动Docker服务
-echo [5/7] 重新构建并启动服务...
+echo [5/6] 重新构建并启动服务...
 docker-compose build --no-cache
 if errorlevel 1 (
     echo × Docker构建失败！
@@ -95,7 +93,7 @@ echo √ Docker服务已启动
 echo.
 
 REM 根据用户选择启动内网穿透
-echo [6/7] 配置内网穿透...
+echo [6/6] 配置内网穿透...
 if /i "%use_cpolar%"=="Y" (
     echo   启动cpolar内网穿透...
     start "cpolar" cmd /k "cd /d D:\soft_home\cpolar && cpolar http 3000"
@@ -106,7 +104,7 @@ if /i "%use_cpolar%"=="Y" (
 
 echo.
 
-echo [7/7] 等待服务就绪...
+echo [7/6] 等待服务就绪...
 timeout /t 5 /nobreak >nul
 
 echo.
