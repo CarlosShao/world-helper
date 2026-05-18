@@ -6,6 +6,12 @@
           <el-menu-item index="/">首页</el-menu-item>
           <el-menu-item index="/error-words">错题集</el-menu-item>
           <el-menu-item index="/yesterday-errors">昨日错词巩固</el-menu-item>
+          <el-menu-item index="/settings">
+            <template #icon>
+              <el-icon><Tools /></el-icon>
+            </template>
+            设置
+          </el-menu-item>
         </el-menu>
         <div class="user-info">
           <span class="username">
@@ -35,7 +41,7 @@
 import { computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { User, SwitchButton } from '@element-plus/icons-vue'
+import { User, SwitchButton, Tools } from '@element-plus/icons-vue'
 import { useAuth } from './composables/useAuth'
 
 const route = useRoute()

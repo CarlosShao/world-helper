@@ -102,7 +102,10 @@
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
                 <template v-if="editingId === row.id && editingField === 'part_of_speech'">
-                  <el-input v-model="editingValue" size="small" @blur="saveEdit()" @keyup.enter="saveEdit()" @keyup.esc="cancelEdit" />
+                  <el-select v-model="editingValue" size="small" @change="saveEdit()" @blur="saveEdit()" filterable placeholder="选择词性">
+                    <el-option label="(空)" value="" />
+                    <el-option v-for="pos in partsOfSpeech" :key="pos.code" :label="`${pos.code} - ${pos.name}`" :value="pos.code" />
+                  </el-select>
                 </template>
                 <template v-else>
                   <el-tag v-if="row.part_of_speech" size="small" type="info" class="editable" @click.stop="startEdit(row, 'part_of_speech', $event)">{{ row.part_of_speech }}</el-tag>
@@ -167,7 +170,10 @@
               </div>
               <div class="field-group">
                 <span class="field-label">词性：</span>
-                <el-input v-model="newWord.part_of_speech" placeholder="词性" size="small" class="field-input pos-input" />
+                <el-select v-model="newWord.part_of_speech" size="small" class="field-input pos-input" placeholder="选择词性" filterable>
+                  <el-option label="(空)" value="" />
+                  <el-option v-for="pos in partsOfSpeech" :key="pos.code" :label="`${pos.code} - ${pos.name}`" :value="pos.code" />
+                </el-select>
               </div>
               <div class="field-group">
                 <span class="field-label">中文：</span>
@@ -417,7 +423,7 @@ import {
   Delete, Loading, Plus
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
-import { wordApi, type Word } from '../api'
+import { wordApi, posApi, type Word } from '../api'
 
 const router = useRouter()
 
@@ -457,6 +463,20 @@ const editingId = ref<number | null>(null)
 const editingField = ref<string>('')
 const editingValue = ref<string>('')
 const editingRow = ref<any>(null)
+
+// 词性列表
+const partsOfSpeech = ref<any[]>([])
+
+const loadPartsOfSpeech = async () => {
+  try {
+    const result = await posApi.getAll()
+    if (result.success) {
+      partsOfSpeech.value = result.data
+    }
+  } catch (error) {
+    console.error('加载词性数据失败:', error)
+  }
+}
 
 // 添加新单词
 const addingNew = ref(false)
@@ -877,6 +897,7 @@ const cancelAddNew = () => {
 
 onMounted(() => {
   loadWords()
+  loadPartsOfSpeech()
 })
 </script>
 

@@ -816,6 +816,131 @@ function findRootWord(word: string, wordIndex: Map<string, number>, rules: any[]
   return findBestRootWord(word, wordIndex, rules, []);
 }
 
+// 获取所有词性
+app.get('/api/parts-of-speech', (req, res) => {
+  const parts = all('SELECT * FROM parts_of_speech ORDER BY code');
+  res.json({ success: true, data: parts });
+});
+
+// 添加词性
+app.post('/api/parts-of-speech', (req, res) => {
+  const { code, name, description } = req.body;
+  
+  if (!code || !name) {
+    return res.status(400).json({ success: false, message: '代码和名称不能为空' });
+  }
+  
+  try {
+    run('INSERT INTO parts_of_speech (code, name, description, updated_at) VALUES (?, ?, ?, datetime("now"))',
+        [code.trim(), name.trim(), description || '']);
+    saveDb();
+    
+    const newItem = get('SELECT * FROM parts_of_speech ORDER BY id DESC LIMIT 1');
+    res.json({ success: true, data: newItem });
+  } catch (error: any) {
+    if (error.message && error.message.includes('UNIQUE constraint failed')) {
+      res.status(400).json({ success: false, message: '该代码已存在' });
+    } else {
+      console.error('Add part of speech error:', error);
+      res.status(500).json({ success: false, message: '添加失败' });
+    }
+  }
+});
+
+// 更新词性
+app.put('/api/parts-of-speech/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const { code, name, description } = req.body;
+  
+  if (!code || !name) {
+    return res.status(400).json({ success: false, message: '代码和名称不能为空' });
+  }
+  
+  try {
+    run('UPDATE parts_of_speech SET code = ?, name = ?, description = ?, updated_at = datetime("now") WHERE id = ?',
+        [code.trim(), name.trim(), description || '', id]);
+    saveDb();
+    
+    const updatedItem = get('SELECT * FROM parts_of_speech WHERE id = ?', [id]);
+    res.json({ success: true, data: updatedItem });
+  } catch (error: any) {
+    if (error.message && error.message.includes('UNIQUE constraint failed')) {
+      res.status(400).json({ success: false, message: '该代码已存在' });
+    } else {
+      console.error('Update part of speech error:', error);
+      res.status(500).json({ success: false, message: '更新失败' });
+    }
+  }
+});
+
+// 删除词性
+app.delete('/api/parts-of-speech/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  
+  try {
+    run('DELETE FROM parts_of_speech WHERE id = ?', [id]);
+    saveDb();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete part of speech error:', error);
+    res.status(500).json({ success: false, message: '删除失败' });
+  }
+});
+
+// 从现有单词中初始化词性数据
+app.post('/api/parts-of-speech/init-from-words', (req, res) => {
+  try {
+    const existingCodes = all('SELECT code FROM parts_of_speech').map((p: any) => p.code.toLowerCase());
+    
+    const posFromWords = all('SELECT DISTINCT part_of_speech FROM words WHERE part_of_speech IS NOT NULL AND part_of_speech != ""');
+    
+    const defaultPos = [
+      { code: 'n.', name: '名词', description: '表示人、事、物、地点或抽象概念' },
+      { code: 'v.', name: '动词', description: '表示动作、状态或发生的事情' },
+      { code: 'adj.', name: '形容词', description: '描述或修饰名词' },
+      { code: 'adv.', name: '副词', description: '修饰动词、形容词或其他副词' },
+      { code: 'prep.', name: '介词', description: '表示时间、地点、方向等关系' },
+      { code: 'conj.', name: '连词', description: '连接单词、短语或句子' },
+      { code: 'pron.', name: '代词', description: '代替名词或名词短语' },
+      { code: 'num.', name: '数词', description: '表示数量或顺序' },
+      { code: 'art.', name: '冠词', description: '限定名词' },
+      { code: 'interj.', name: '感叹词', description: '表达强烈情感' },
+      { code: 'suff.', name: '后缀', description: '单词后缀' },
+      { code: 'comb.', name: '组合形式', description: '用于构成复合词' },
+      { code: 'abbr.', name: '缩写', description: '缩写形式' },
+      { code: 'pl.', name: '复数', description: '复数形式' },
+      { code: 'sing.', name: '单数', description: '单数形式' },
+    ];
+    
+    let addedCount = 0;
+    
+    defaultPos.forEach(pos => {
+      if (!existingCodes.includes(pos.code.toLowerCase())) {
+        run('INSERT INTO parts_of_speech (code, name, description, updated_at) VALUES (?, ?, ?, datetime("now"))',
+            [pos.code, pos.name, pos.description]);
+        addedCount++;
+        existingCodes.push(pos.code.toLowerCase());
+      }
+    });
+    
+    posFromWords.forEach((item: any) => {
+      const code = item.part_of_speech.trim();
+      if (code && !existingCodes.includes(code.toLowerCase())) {
+        run('INSERT INTO parts_of_speech (code, name, description, updated_at) VALUES (?, ?, ?, datetime("now"))',
+            [code, code, '从导入数据中提取']);
+        addedCount++;
+        existingCodes.push(code.toLowerCase());
+      }
+    });
+    
+    saveDb();
+    res.json({ success: true, addedCount });
+  } catch (error) {
+    console.error('Init parts of speech error:', error);
+    res.status(500).json({ success: false, message: '初始化失败' });
+  }
+});
+
 // 查找最佳根词 - 更精确的算法
 function findBestRootWord(word: string, wordIndex: Map<string, number>, rules: any[], allWords: any[]): number | null {
   let bestRoot: number | null = null;

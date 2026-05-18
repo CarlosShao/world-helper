@@ -114,3 +114,25 @@ export const wordApi = {
     return api.post('/words', data)
   }
 }
+
+export const posApi = {
+  getAll: () => {
+    return api.get('/parts-of-speech').then(res => res.data)
+  },
+  
+  add: (data: { code: string, name: string, description?: string }) => {
+    return api.post('/parts-of-speech', data).then(res => res.data)
+  },
+  
+  update: (id: number, data: { code: string, name: string, description?: string }) => {
+    return api.put(`/parts-of-speech/${id}`, data).then(res => res.data)
+  },
+  
+  delete: (id: number) => {
+    return api.delete(`/parts-of-speech/${id}`).then(res => res.data)
+  },
+  
+  initFromWords: () => {
+    return api.post('/parts-of-speech/init-from-words').then(res => res.data)
+  }
+}
