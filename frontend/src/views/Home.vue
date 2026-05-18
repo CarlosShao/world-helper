@@ -146,9 +146,9 @@
                     随手拼
                   </el-button>
                   <el-dropdown trigger="click" size="small">
-                    <el-button size="small" type="warning">
-                      <el-icon><Setting /></el-icon>
-                      管理
+                    <el-button size="small" type="default">
+                      <el-icon><More /></el-icon>
+                      更多
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
