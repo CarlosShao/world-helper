@@ -166,10 +166,13 @@ export async function parsePdf(filePath: string): Promise<ParseResult> {
 function cleanFooterData(text: string): string {
   // 页脚脏数据模式 - 按照匹配优先级排序
   const footerPatterns = [
-    // 针对当前问题的精确模式
+    // 针对当前问题的精确模式 - 完整匹配
     /\s+[Ss]hao\s+[Yy]e\s+的\s+词表\s+全部\s+共\s+\d+\s+词\s+\d+\/\d+\s+页\s+扫描二维码/g,
     /\s+[Ss]hao\s+[Yy]e\s+的\s+词表.*扫描二维码/g,
     /\s+词表\s+全部\s+共\s+\d+\s+词.*扫描二维码/g,
+    // 处理剩余的脏数据模式
+    /\s+全部\s+共\s+\d+\s+词\s+\d+\/\d+\s+页/g,
+    /\s+全部\s+共\s+\d+\s+词.*页/g,
     // 更通用的模式
     /\s+[Ss]hao\s*[Yy]e\s*的\s*词表.*共\s*\d+\s*词\s*\d+\/\d+\s*页\s*扫描二维码/g,
     /\s+词表全部\s*共\s*\d+\s*词\s*\d+\/\d+\s*页\s*扫描二维码/g,
