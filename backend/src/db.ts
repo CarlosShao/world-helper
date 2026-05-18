@@ -32,6 +32,9 @@ export async function initDb(): Promise<SqlJsDatabase> {
       is_classified INTEGER DEFAULT 0
     )
   `);
+
+  db.run(`CREATE INDEX IF NOT EXISTS idx_words_english ON words(english)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_words_chinese ON words(chinese)`);
   
   db.run(`
     CREATE TABLE IF NOT EXISTS error_words (
@@ -87,6 +90,9 @@ export async function initDb(): Promise<SqlJsDatabase> {
       FOREIGN KEY (child_word_id) REFERENCES words(id)
     )
   `);
+
+  db.run(`CREATE INDEX IF NOT EXISTS idx_relations_root ON word_relations(root_word_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_relations_child ON word_relations(child_word_id)`);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS classification_rules (

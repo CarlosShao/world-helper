@@ -1,47 +1,51 @@
 <template>
-  <el-container class="app-container" v-if="isLoggedIn">
-    <el-header>
-      <div class="header-content">
-        <el-menu :default-active="activeMenu" mode="horizontal" router>
-          <el-menu-item index="/">首页</el-menu-item>
-          <el-menu-item index="/error-words">错题集</el-menu-item>
-          <el-menu-item index="/yesterday-errors">昨日错词巩固</el-menu-item>
-        </el-menu>
-        <div class="user-info">
-          <span class="username">
-            <el-icon><User /></el-icon>
-            {{ username }}
-          </span>
-          <el-dropdown>
-            <el-button type="primary" size="small" circle>
-              <el-icon><Setting /></el-icon>
+  <div class="app">
+    <el-container class="app-container" v-if="isLoggedIn">
+      <el-header>
+        <div class="header-content">
+          <el-menu :default-active="activeMenu" mode="horizontal" router>
+            <el-menu-item index="/">首页</el-menu-item>
+            <el-menu-item index="/error-words">错题集</el-menu-item>
+            <el-menu-item index="/yesterday-errors">昨日错词巩固</el-menu-item>
+          </el-menu>
+          <div class="user-info">
+            <span class="username">
+              <el-icon><User /></el-icon>
+              {{ username }}
+            </span>
+            <el-dropdown>
+              <el-button type="primary" size="small" circle>
+                <el-icon><Setting /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="router.push('/settings')">
+                    <el-icon><Tools /></el-icon>
+                    词性配置
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <el-button 
+              type="danger" 
+              size="small" 
+              class="logout-btn"
+              @click="handleLogout"
+            >
+              <el-icon><SwitchButton /></el-icon>
+              退出
             </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="router.push('/settings')">
-                  <el-icon><Tools /></el-icon>
-                  词性配置
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-          <el-button 
-            type="danger" 
-            size="small" 
-            class="logout-btn"
-            @click="handleLogout"
-          >
-            <el-icon><SwitchButton /></el-icon>
-            退出
-          </el-button>
+          </div>
         </div>
-      </div>
-    </el-header>
-    <el-main>
+      </el-header>
+      <el-main>
+        <router-view />
+      </el-main>
+    </el-container>
+    <div v-else>
       <router-view />
-    </el-main>
-  </el-container>
-  <router-view v-else />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -86,7 +90,9 @@ const handleLogout = async () => {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+}
+
+.app {
   min-height: 100vh;
 }
 
@@ -168,18 +174,19 @@ body {
   background: transparent;
 }
 
-.el-card {
+/* 下面的样式只有登录后显示，不影响登录页面 */
+.app-container .el-card {
   border-radius: 12px;
   border: none;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
 }
 
-.el-card:hover {
+.app-container .el-card:hover {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
 }
 
-.el-card__header {
+.app-container .el-card__header {
   border-bottom: 1px solid #f0f2f5;
   padding: 18px 24px;
   font-weight: 600;
@@ -187,93 +194,94 @@ body {
   color: #303133;
 }
 
-.el-card__body {
+.app-container .el-card__body {
   padding: 24px;
 }
 
-.el-button--primary {
+.app-container .el-button--primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
   transition: all 0.3s ease;
 }
 
-.el-button--primary:hover {
+.app-container .el-button--primary:hover {
   background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-.el-button--success {
+.app-container .el-button--success {
   background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
   border: none;
 }
 
-.el-button--success:hover {
+.app-container .el-button--success:hover {
   background: linear-gradient(135deg, #0f8a7f 0%, #32d971 100%);
   transform: translateY(-1px);
 }
 
-.el-button {
+.app-container .el-button {
   border-radius: 8px;
   font-weight: 500;
   transition: all 0.3s ease;
 }
 
-.el-button:hover {
+.app-container .el-button:hover {
   transform: translateY(-1px);
 }
 
-.el-input__wrapper {
+.app-container .el-input__wrapper {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.3s ease;
 }
 
-.el-input__wrapper:hover {
+.app-container .el-input__wrapper:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.el-input__wrapper.is-focus {
+.app-container .el-input__wrapper.is-focus {
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
 }
 
-.el-table {
+.app-container .el-table {
   border-radius: 8px;
   overflow: hidden;
 }
 
-.el-table th.el-table__cell {
+.app-container .el-table th.el-table__cell {
   background-color: #f8f9fb;
   font-weight: 600;
   color: #606266;
 }
 
-.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell {
+.app-container .el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell {
   background-color: #f5f7fa;
 }
 
-.el-pagination {
+.app-container .el-pagination {
   margin-top: 24px;
 }
 
-.el-pagination button, .el-pagination .el-pager li {
+.app-container .el-pagination button, 
+.app-container .el-pagination .el-pager li {
   border-radius: 6px;
   margin: 0 3px;
 }
 
-.el-pagination .el-pager li.is-active {
+.app-container .el-pagination .el-pager li.is-active {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.el-dialog {
+.app-container .el-dialog {
   border-radius: 16px;
 }
 
-.el-dialog__header {
+.app-container .el-dialog__header {
   border-radius: 16px 16px 0 0;
 }
 
-.el-message {
+.app-container .el-message {
   border-radius: 10px;
 }
 
@@ -283,7 +291,7 @@ body {
     padding: 10px 16px;
   }
   
-  .el-main {
+  .app-container .el-main {
     padding: 15px 10px;
   }
   
@@ -292,11 +300,11 @@ body {
     font-size: 14px;
   }
   
-  .el-card__header {
+  .app-container .el-card__header {
     padding: 14px 16px;
   }
   
-  .el-card__body {
+  .app-container .el-card__body {
     padding: 16px;
   }
 }

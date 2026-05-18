@@ -189,7 +189,7 @@ async function startServer() {
     res.json({ success: true, imports: recentImports });
   });
 
-  // 获取单词列表（分页）
+  // 获取单词列表（分页）- 优化版：直接包含关系数据
   app.get('/api/words', (req, res) => {
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = parseInt(req.query.pageSize as string) || 20;
@@ -210,8 +210,63 @@ async function startServer() {
       total = get('SELECT COUNT(*) as total FROM words')?.total || 0;
     }
 
+    // 获取关系数据并构建树形结构
+    const wordIds = words.map(w => w.id);
+    const relations = all('SELECT * FROM word_relations WHERE root_word_id IN (' + wordIds.map(() => '?').join(',') + ')', wordIds);
+    const childWordIds = [...new Set(relations.map(r => r.child_word_id))];
+    let childWords = [];
+    if (childWordIds.length > 0) {
+      childWords = all('SELECT * FROM words WHERE id IN (' + childWordIds.map(() => '?').join(',') + ')', childWordIds);
+    }
+    
+    const wordMap = new Map();
+    words.forEach(w => wordMap.set(w.id, { ...w, derivatives: [], phrases: [] }));
+    childWords.forEach(w => wordMap.set(w.id, { ...w, derivatives: [], phrases: [] }));
+    
+    relations.forEach(r => {
+      const child = wordMap.get(r.child_word_id);
+      const parent = wordMap.get(r.root_word_id);
+      if (child && parent) {
+        if (r.relation_type === 'derivative') {
+          parent.derivatives.push(child);
+        } else {
+          parent.phrases.push(child);
+        }
+      }
+    });
+
+    const result = words.map(word => {
+      const wordData = wordMap.get(word.id);
+      const children = [];
+      
+      if (wordData?.derivatives?.length > 0) {
+        children.push({
+          id: `deriv-${word.id}`,
+          title: '衍生词',
+          type: 'group',
+          children: wordData.derivatives.map(d => ({ ...d, isChild: true }))
+        });
+      }
+      
+      if (wordData?.phrases?.length > 0) {
+        children.push({
+          id: `phrase-${word.id}`,
+          title: '短语',
+          type: 'group',
+          children: wordData.phrases.map(p => ({ ...p, isChild: true }))
+        });
+      }
+      
+      return {
+        ...word,
+        hasChildren: children.length > 0,
+        children,
+        isChild: false
+      };
+    });
+
     res.json({
-      words,
+      words: result,
       total,
       page,
       pageSize
@@ -236,6 +291,30 @@ async function startServer() {
     } catch (error) {
       console.error('Update word error:', error);
       res.status(500).json({ success: false, message: '更新失败' });
+    }
+  });
+
+  // 获取单词的全局索引（按english排序）
+  app.get('/api/words/index/:wordId', (req, res) => {
+    const wordId = parseInt(req.params.wordId);
+    
+    try {
+      const result = get(`
+        SELECT COUNT(*) as word_index 
+        FROM words 
+        WHERE english < (SELECT english FROM words WHERE id = ?)
+        ORDER BY english
+      `, [wordId]);
+      
+      const total = get('SELECT COUNT(*) as total FROM words');
+      
+      res.json({
+        index: result?.word_index || 0,
+        total: total?.total || 0
+      });
+    } catch (error) {
+      console.error('Get word index error:', error);
+      res.status(500).json({ success: false, message: '获取索引失败' });
     }
   });
 
@@ -441,6 +520,53 @@ async function startServer() {
   });
 
   // 获取单词树形结构
+  app.get('/api/words/batch-relations', (req, res) => {
+    const wordIds = (req.query.ids as string)?.split(',').map(id => parseInt(id)) || [];
+    
+    if (wordIds.length === 0) {
+      return res.json({ relations: [], wordMap: {} });
+    }
+
+    const placeholders = wordIds.map(() => '?').join(',');
+    
+    const words = all(`SELECT * FROM words WHERE id IN (${placeholders})`, wordIds);
+    
+    const childIds = all(`SELECT child_word_id FROM word_relations WHERE root_word_id IN (${placeholders})`, wordIds);
+    const childWordIds = childIds.map(r => r.child_word_id);
+    
+    let childWords = [];
+    if (childWordIds.length > 0) {
+      const childPlaceholders = childWordIds.map(() => '?').join(',');
+      childWords = all(`SELECT * FROM words WHERE id IN (${childPlaceholders})`, childWordIds);
+    }
+    
+    const allWordsData = [...words, ...childWords];
+    const wordMap = new Map<number, any>();
+    allWordsData.forEach(w => {
+      wordMap.set(w.id, { ...w, derivatives: [], phrases: [] });
+    });
+    
+    const relations = all(`SELECT * FROM word_relations WHERE root_word_id IN (${placeholders})`, wordIds);
+    
+    relations.forEach(rel => {
+      const child = wordMap.get(rel.child_word_id);
+      const parent = wordMap.get(rel.root_word_id);
+      
+      if (child && parent) {
+        child.relationId = rel.id;
+        child.relationType = rel.relation_type;
+        child.parentId = rel.root_word_id;
+        if (rel.relation_type === 'derivative') {
+          parent.derivatives.push(child);
+        } else {
+          parent.phrases.push(child);
+        }
+      }
+    });
+    
+    res.json({ relations, wordMap: Object.fromEntries(wordMap) });
+  });
+
   app.get('/api/words/tree', (req, res) => {
     const search = (req.query.search as string) || '';
 

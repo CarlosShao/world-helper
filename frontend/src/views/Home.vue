@@ -35,7 +35,7 @@
               style="width: 220px;"
               clearable
               @keyup.enter="loadWords"
-              @clear="loadWords"
+              @clear="handleSearchClear"
             >
               <template #prefix>
                 <el-icon><Search /></el-icon>
@@ -69,16 +69,20 @@
         <el-table 
           :data="tableData" 
           class="word-table"
-          style="width: 100%; min-width: 1200px;" 
+          style="width: 100%;" 
           stripe
           row-key="id"
           :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
           v-loading="loading"
           @selection-change="handleSelectionChange"
         >
-          <el-table-column type="selection" width="50" align="center" :selectable="checkSelectable" />
-          <el-table-column type="index" label="序号" width="70" align="center" />
-          <el-table-column label="英文" width="180" show-overflow-tooltip>
+          <el-table-column type="selection" width="55" align="center" :selectable="checkSelectable" />
+          <el-table-column label="序号" width="70" align="center">
+            <template #default="{ $index }">
+              {{ (currentPage - 1) * pageSize + $index + 1 }}
+            </template>
+          </el-table-column>
+          <el-table-column label="英文" width="220" show-overflow-tooltip>
             <template #default="{ row }">
               <template v-if="row.type === 'group'">
                 <el-tag size="small" type="warning">{{ row.title }}</el-tag>
@@ -98,7 +102,7 @@
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="词性" width="150" align="left">
+          <el-table-column label="词性" width="130" align="left">
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
                 <template v-if="editingId === row.id && editingField === 'part_of_speech'">
@@ -114,7 +118,7 @@
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="中文" width="400" show-overflow-tooltip>
+          <el-table-column label="中文" min-width="350" show-overflow-tooltip>
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
                 <template v-if="editingId === row.id && editingField === 'chinese'">
@@ -127,27 +131,43 @@
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="470" align="center" fixed="right">
+          <el-table-column label="操作" width="380" align="center" fixed="right">
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id && !row.isChild">
                 <div class="action-buttons-row">
-                  <el-button size="mini" @click="toggleChinese(row.id)" :class="hiddenChinese.has(row.id) ? 'btn-show' : 'btn-hide'">
-                    <el-icon><View /></el-icon>
-                    {{ hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文' }}
+                  <el-tooltip :content="hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文'" placement="top">
+                    <el-button size="small" @click="toggleChinese(row.id)" :type="hiddenChinese.has(row.id) ? 'info' : 'default'">
+                      <el-icon><View /></el-icon>
+                    </el-button>
+                  </el-tooltip>
+                  <el-tooltip :content="hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文'" placement="top">
+                    <el-button size="small" @click="toggleEnglish(row.id)" :type="hiddenEnglish.has(row.id) ? 'info' : 'default'">
+                      <el-icon><Hide /></el-icon>
+                    </el-button>
+                  </el-tooltip>
+                  <el-button size="small" type="success" @click="startPracticeFromWord(row.id)">
+                    <el-icon><EditPen /></el-icon>
+                    随手拼
                   </el-button>
-                  <el-button size="mini" @click="toggleEnglish(row.id)" :class="hiddenEnglish.has(row.id) ? 'btn-show' : 'btn-hide'">
-                    <el-icon><Hide /></el-icon>
-                    {{ hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文' }}
-                  </el-button>
-                  <el-button size="mini" type="warning" @click="resetWordClassification(row.id)">
-                    <el-icon><Refresh /></el-icon>
-                    重新分类
-                  </el-button>
-                  <el-button size="mini" type="primary" @click="showManualClassification(row.id)">
-                    <el-icon><Edit /></el-icon>
-                    手动分类
-                  </el-button>
-                  <el-button size="mini" type="danger" @click="deleteWord(row)">
+                  <el-dropdown trigger="click" size="small">
+                    <el-button size="small" type="default">
+                      <el-icon><More /></el-icon>
+                      更多
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item @click="resetWordClassification(row.id)">
+                          <el-icon><Refresh /></el-icon>
+                          重新分类
+                        </el-dropdown-item>
+                        <el-dropdown-item @click="showManualClassification(row.id)">
+                          <el-icon><Edit /></el-icon>
+                          手动分类
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                  <el-button size="small" type="danger" @click="deleteWord(row)">
                     <el-icon><Delete /></el-icon>
                     删除
                   </el-button>
@@ -416,11 +436,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Search, View, Hide, Edit, Upload, 
   DocumentAdd, Notebook, Document, Refresh,
-  Delete, Loading, Plus
+  Delete, Loading, Plus, EditPen, More
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { wordApi, posApi, type Word } from '../api'
@@ -526,63 +547,21 @@ const batchDeleteSelected = async () => {
   }
 }
 
+const handleSearchClear = () => {
+  currentPage.value = 1
+  searchText.value = ''
+  // 跳转到不带page参数的首页，确保完全重置
+  router.push('/')
+  loadWords()
+}
+
 const loadWords = async () => {
   loading.value = true
   try {
     const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
-    const flatWords = res.data.words
-    
-    const treeRes = await wordApi.getWordsTree(searchText.value)
-    
-    const treeMap = new Map<number, any>()
-    const buildTreeMap = (nodes: any[], parentId: number | null = null) => {
-      for (const node of nodes) {
-        if (node.id && node.type !== 'group') {
-          treeMap.set(node.id, {
-            hasChildren: node.children && node.children.length > 0,
-            children: node.children,
-            parentId
-          })
-        }
-        if (node.children && node.children.length > 0) {
-          buildTreeMap(node.children, node.id)
-        }
-      }
-    }
-    buildTreeMap(treeRes.data.words)
-    
-    const result: any[] = []
-    for (const word of flatWords) {
-      const treeInfo = treeMap.get(word.id)
-      const children = treeInfo?.children || []
-      
-      const processedChildren = children.map((child: any) => {
-        if (child.type === 'group') {
-          return {
-            ...child,
-            children: child.children.map((c: any) => ({
-              ...c,
-              isChild: true
-            }))
-          }
-        }
-        return {
-          ...child,
-          isChild: true
-        }
-      })
-      
-      result.push({
-        ...word,
-        hasChildren: processedChildren.length > 0,
-        children: processedChildren,
-        isChild: treeInfo?.parentId !== null
-      })
-    }
-    
-    tableData.value = result
+    tableData.value = res.data.words
     total.value = res.data.total
-    words.value = flatWords
+    words.value = res.data.words.map((w: any) => ({ ...w }))
   } catch (error) {
     ElMessage.error('加载数据失败')
   } finally {
@@ -866,6 +845,25 @@ const cancelEdit = () => {
   editingValue.value = ''
 }
 
+// 从指定单词开始随手拼
+const startPracticeFromWord = async (wordId: number) => {
+  try {
+    const res = await wordApi.getWordIndex(wordId)
+    if (res.data && res.data.index !== undefined) {
+      router.push({
+        path: '/practice',
+        query: {
+          fromWord: wordId,
+          fromIndex: res.data.index,
+          fromPage: currentPage.value
+        }
+      })
+    }
+  } catch (error) {
+    ElMessage.error('无法开始练习')
+  }
+}
+
 // 开始添加新单词
 const startAddNew = () => {
   addingNew.value = true
@@ -895,7 +893,15 @@ const cancelAddNew = () => {
   newWord.value = { english: '', part_of_speech: '', chinese: '' }
 }
 
+const route = useRoute()
+
 onMounted(() => {
+  const pageParam = route.query.page
+  if (pageParam) {
+    currentPage.value = parseInt(pageParam as string)
+  } else {
+    currentPage.value = 1
+  }
   loadWords()
   loadPartsOfSpeech()
 })
@@ -903,9 +909,10 @@ onMounted(() => {
 
 <style scoped>
 .home {
-  max-width: 95%;
+  width: 100%;
+  padding: 0 20px;
   margin: 0 auto;
-  min-width: 1200px;
+  box-sizing: border-box;
 }
 
 .word-list-card {
@@ -1122,27 +1129,15 @@ onMounted(() => {
 
 .action-buttons-row {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   justify-content: center;
   align-items: center;
 }
 
 .action-buttons-row .el-button {
-  padding: 4px 10px;
+  padding: 4px 12px;
   font-size: 12px;
   border-radius: 4px;
-}
-
-.action-buttons-row .btn-hide {
-  background: #f5f7fa;
-  color: #606266;
-  border-color: #dcdfe6;
-}
-
-.action-buttons-row .btn-show {
-  background: #fff;
-  color: #667eea;
-  border-color: #667eea;
 }
 
 .pagination-wrapper {
