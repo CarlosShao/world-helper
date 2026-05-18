@@ -244,7 +244,7 @@ async function startServer() {
           id: `deriv-${word.id}`,
           title: '衍生词',
           type: 'group',
-          children: wordData.derivatives.map(d => ({ ...d, isChild: true }))
+          children: wordData.derivatives.map((d: any) => ({ ...d, isChild: true }))
         });
       }
       
@@ -253,7 +253,7 @@ async function startServer() {
           id: `phrase-${word.id}`,
           title: '短语',
           type: 'group',
-          children: wordData.phrases.map(p => ({ ...p, isChild: true }))
+          children: wordData.phrases.map((p: any) => ({ ...p, isChild: true }))
         });
       }
       
