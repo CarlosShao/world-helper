@@ -164,54 +164,20 @@ export async function parsePdf(filePath: string): Promise<ParseResult> {
 }
 
 function cleanFooterData(text: string): string {
-  // 页脚脏数据模式 - 按照匹配优先级排序
-  const footerPatterns = [
-    // 针对当前问题的精确模式 - 处理各种格式
-    /\s+全部\s+共\s+\d+\s+词\s+\d+\/\d+\s+页/g,
-    /\s+全部\s+共\s+\d+\s+词.*页/g,
-    /\s+共\s+\d+\s+词\s+\d+\/\d+\s+页/g,
-    /\s+共\s+\d+\s+词.*页/g,
-    /\s+\d+\/\d+\s+页/g,
-    // 没有空格开头的模式
-    /全部\s+共\s+\d+\s+词\s+\d+\/\d+\s+页/g,
-    /全部\s+共\s+\d+\s+词.*页/g,
-    /共\s+\d+\s+词\s+\d+\/\d+\s+页/g,
-    /共\s+\d+\s+词.*页/g,
-    /\d+\/\d+\s+页/g,
-    // 完整匹配模式
-    /\s+[Ss]hao\s+[Yy]e\s+的\s+词表\s+全部\s+共\s+\d+\s+词\s+\d+\/\d+\s+页\s+扫描二维码/g,
-    /\s+[Ss]hao\s+[Yy]e\s+的\s+词表.*扫描二维码/g,
-    /\s+词表\s+全部\s+共\s+\d+\s+词.*扫描二维码/g,
-    // 更通用的模式
-    /\s+[Ss]hao\s*[Yy]e\s*的\s*词表.*共\s*\d+\s*词\s*\d+\/\d+\s*页\s*扫描二维码/g,
-    /\s+词表全部\s*共\s*\d+\s*词\s*\d+\/\d+\s*页\s*扫描二维码/g,
-    /\s+[Ss]hao\s*[Yy]e.*二维码/g,
-    /\s+词表.*二维码/g,
-    // 原始模式
-    /全部已学.*复习完成.*共.*词.*\/.*页/g,
-    /已学.*复习完成/g,
-    /共\s*\d+\s*词\s*\d+\/\d+\s*页/g,
-    /\d+\/\d+\s*页/g,
-    /背单词.*App/g,
-    /扫码.*二维码/g,
-    /单词不用背.*自然会/g,
-    /近日已学.*复习/g,
-    /扫码听单词/g,
-    /纸上默写.*耳边复习/g,
-    /在学配套词书/g,
-    /Shao Ye.*词表.*共.*词.*\/.*页.*二维码/g,
-    /词表全部.*共.*词/g,
-    /扫描二维码/g,
-    /[Ss]hao\s*[Yy]e.*词表.*共.*词/g,
-    /词表全部.*共.*词.*页/g,
-    /共\s*\d+\s*词.*页.*二维码/g,
-    /\d+\/\d+\s*页.*二维码/g
-  ];
-  
   let result = text;
-  for (const pattern of footerPatterns) {
-    result = result.replace(pattern, '').trim();
+  
+  // 方法1：查找脏数据起始位置并截断
+  // 匹配"全部"或"共"后面跟着数字的模式
+  const dirtyMatch = result.match(/(全部|共)\s*\d+/);
+  if (dirtyMatch && dirtyMatch.index !== undefined && dirtyMatch.index > 0) {
+    result = result.substring(0, dirtyMatch.index).trim();
   }
+  
+  // 方法2：如果还有剩余的页码信息，继续清理
+  result = result.replace(/\d+\/\d+\s*页/g, '').trim();
+  
+  // 方法3：清理二维码相关内容
+  result = result.replace(/扫描二维码/g, '').trim();
   
   return result;
 }
