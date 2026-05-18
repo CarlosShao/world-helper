@@ -157,28 +157,29 @@
 
       <!-- 添加新单词行 -->
       <template v-if="addingNew" class="new-word-row">
-        <el-row :gutter="10" style="margin: 12px 0; padding: 12px; background: #f5f7fa; border-radius: 8px;">
-          <el-col :span="16" style="margin-left: 60px;">
-            <div style="color: #909399; font-size: 14px;">新增单词</div>
-          </el-col>
-          <el-col :span="6">
-            <el-input v-model="newWord.english" placeholder="英文" size="small" />
-          </el-col>
-          <el-col :span="4">
-            <el-input v-model="newWord.part_of_speech" placeholder="词性" size="small" />
-          </el-col>
-          <el-col :span="6">
-            <el-input v-model="newWord.chinese" placeholder="中文" size="small" />
-          </el-col>
-          <el-col :span="5">
-            <el-button type="primary" size="small" @click="saveNewWord">
-              保存
-            </el-button>
-            <el-button size="small" @click="cancelAddNew">
-              取消
-            </el-button>
-          </el-col>
-        </el-row>
+        <div class="new-word-container">
+          <div class="new-word-row">
+            <div class="new-word-label">新增单词</div>
+            <div class="new-word-fields">
+              <div class="field-group">
+                <span class="field-label">英文：</span>
+                <el-input v-model="newWord.english" placeholder="请输入英文" size="small" class="field-input" />
+              </div>
+              <div class="field-group">
+                <span class="field-label">词性：</span>
+                <el-input v-model="newWord.part_of_speech" placeholder="词性" size="small" class="field-input pos-input" />
+              </div>
+              <div class="field-group">
+                <span class="field-label">中文：</span>
+                <el-input v-model="newWord.chinese" placeholder="请输入中文释义" size="small" class="field-input chinese-input" />
+              </div>
+              <div class="field-actions">
+                <el-button type="primary" size="small" @click="saveNewWord">保存</el-button>
+                <el-button size="small" @click="cancelAddNew">取消</el-button>
+              </div>
+            </div>
+          </div>
+        </div>
       </template>
 
       <div class="pagination-wrapper">
@@ -961,6 +962,63 @@ onMounted(() => {
 .new-word-row {
   display: flex;
   align-items: center;
+}
+
+.new-word-container {
+  margin: 12px 0;
+  padding: 16px;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.new-word-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.new-word-label {
+  width: 60px;
+  color: #909399;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.new-word-fields {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.field-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-label {
+  color: #606266;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.field-input {
+  width: 180px;
+}
+
+.field-input.pos-input {
+  width: 100px;
+}
+
+.field-input.chinese-input {
+  width: 250px;
+}
+
+.field-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .table-wrapper {
