@@ -31,7 +31,7 @@
           <span class="progress-count">{{ getProgressText() }}</span>
         </div>
         <el-progress 
-          :percentage="Math.round((correctCount / totalWords) * 100)" 
+          :percentage="Math.round((correctCount / practiceTotal) * 100)" 
           :show-text="false"
           :stroke-width="8"
           class="progress-line"
@@ -145,6 +145,8 @@ const fromPage = ref<number | null>(null)
 const totalWords = ref(0)
 const correctCount = ref(0)
 
+const practiceTotal = ref(0)
+
 const loadWords = async () => {
   try {
     const res = await wordApi.getWords(1, 1000)
@@ -156,6 +158,10 @@ const loadWords = async () => {
 }
 
 const getProgressText = () => {
+  if (fromIndex.value !== null) {
+    const total = totalWords.value - fromIndex.value
+    return `${correctCount.value} / ${total}`
+  }
   return `${correctCount.value} / ${totalWords.value}`
 }
 
@@ -237,6 +243,7 @@ const startPractice = async () => {
     if (queryFromPage !== undefined) {
       fromPage.value = parseInt(queryFromPage as string)
     }
+    practiceTotal.value = totalWords.value - fromIndex.value
   } else {
     await loadProgress()
     if (savedIndex.value >= words.value.length) {
@@ -244,6 +251,7 @@ const startPractice = async () => {
     } else {
       currentIndex.value = savedIndex.value
     }
+    practiceTotal.value = totalWords.value
   }
   
   correctCount.value = 0

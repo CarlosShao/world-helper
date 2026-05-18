@@ -167,6 +167,7 @@
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
+                  <span class="action-placeholder" v-if="(!row.isChild && row.hasParent) || row.isChild"></span>
                   <el-button size="small" type="danger" @click="deleteWord(row)">
                     <el-icon><Delete /></el-icon>
                     删除
@@ -1138,6 +1139,10 @@ onMounted(() => {
   padding: 4px 12px;
   font-size: 12px;
   border-radius: 4px;
+}
+
+.action-placeholder {
+  width: 52px;
 }
 
 .pagination-wrapper {
