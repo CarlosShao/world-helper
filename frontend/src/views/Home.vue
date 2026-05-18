@@ -127,26 +127,10 @@
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="470" align="center" fixed="right">
+          <el-table-column label="操作" width="280" align="center" fixed="right">
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id && !row.isChild">
                 <div class="action-buttons-row">
-                  <el-button size="mini" @click="toggleChinese(row.id)" :class="hiddenChinese.has(row.id) ? 'btn-show' : 'btn-hide'">
-                    <el-icon><View /></el-icon>
-                    {{ hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文' }}
-                  </el-button>
-                  <el-button size="mini" @click="toggleEnglish(row.id)" :class="hiddenEnglish.has(row.id) ? 'btn-show' : 'btn-hide'">
-                    <el-icon><Hide /></el-icon>
-                    {{ hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文' }}
-                  </el-button>
-                  <el-button size="mini" type="warning" @click="resetWordClassification(row.id)">
-                    <el-icon><Refresh /></el-icon>
-                    重新分类
-                  </el-button>
-                  <el-button size="mini" type="primary" @click="showManualClassification(row.id)">
-                    <el-icon><Edit /></el-icon>
-                    手动分类
-                  </el-button>
                   <el-button size="mini" type="success" @click="startPracticeFromWord(row.id)">
                     <el-icon><EditPen /></el-icon>
                     随手拼
@@ -155,6 +139,32 @@
                     <el-icon><Delete /></el-icon>
                     删除
                   </el-button>
+                  <el-dropdown trigger="click">
+                    <el-button size="mini">
+                      <el-icon><More /></el-icon>
+                      更多
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item @click="toggleChinese(row.id)">
+                          <el-icon><View /></el-icon>
+                          {{ hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文' }}
+                        </el-dropdown-item>
+                        <el-dropdown-item @click="toggleEnglish(row.id)">
+                          <el-icon><Hide /></el-icon>
+                          {{ hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文' }}
+                        </el-dropdown-item>
+                        <el-dropdown-item divided @click="resetWordClassification(row.id)">
+                          <el-icon><Refresh /></el-icon>
+                          重新分类
+                        </el-dropdown-item>
+                        <el-dropdown-item @click="showManualClassification(row.id)">
+                          <el-icon><Edit /></el-icon>
+                          手动分类
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
                 </div>
               </template>
             </template>
@@ -424,7 +434,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Search, View, Hide, Edit, Upload, 
   DocumentAdd, Notebook, Document, Refresh,
-  Delete, Loading, Plus, EditPen
+  Delete, Loading, Plus, EditPen, More
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { wordApi, posApi, type Word } from '../api'
@@ -536,51 +546,45 @@ const loadWords = async () => {
     const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
     const flatWords = res.data.words
     
-    const treeRes = await wordApi.getWordsTree(searchText.value)
-    
-    const treeMap = new Map<number, any>()
-    const buildTreeMap = (nodes: any[], parentId: number | null = null) => {
-      for (const node of nodes) {
-        if (node.id && node.type !== 'group') {
-          treeMap.set(node.id, {
-            hasChildren: node.children && node.children.length > 0,
-            children: node.children,
-            parentId
-          })
-        }
-        if (node.children && node.children.length > 0) {
-          buildTreeMap(node.children, node.id)
-        }
-      }
-    }
-    buildTreeMap(treeRes.data.words)
+    const wordIds = flatWords.map(w => w.id).join(',')
+    const relationsRes = await fetch(`/api/words/batch-relations?ids=${wordIds}`)
+    const relationsData = await relationsRes.json()
+    const wordMap = relationsData.wordMap || {}
     
     const result: any[] = []
     for (const word of flatWords) {
-      const treeInfo = treeMap.get(word.id)
-      const children = treeInfo?.children || []
+      const wordData = wordMap[word.id]
+      const childItems: any[] = []
       
-      const processedChildren = children.map((child: any) => {
-        if (child.type === 'group') {
-          return {
-            ...child,
-            children: child.children.map((c: any) => ({
-              ...c,
-              isChild: true
-            }))
-          }
-        }
-        return {
-          ...child,
-          isChild: true
-        }
-      })
+      if (wordData?.derivatives && wordData.derivatives.length > 0) {
+        childItems.push({
+          id: `deriv-${word.id}`,
+          title: '衍生词',
+          type: 'group',
+          children: wordData.derivatives.map((d: any) => ({
+            ...d,
+            isChild: true
+          }))
+        })
+      }
+      
+      if (wordData?.phrases && wordData.phrases.length > 0) {
+        childItems.push({
+          id: `phrase-${word.id}`,
+          title: '短语',
+          type: 'group',
+          children: wordData.phrases.map((p: any) => ({
+            ...p,
+            isChild: true
+          }))
+        })
+      }
       
       result.push({
         ...word,
-        hasChildren: processedChildren.length > 0,
-        children: processedChildren,
-        isChild: treeInfo?.parentId !== null
+        hasChildren: childItems.length > 0,
+        children: childItems,
+        isChild: false
       })
     }
     
@@ -1139,27 +1143,15 @@ onMounted(() => {
 
 .action-buttons-row {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   justify-content: center;
   align-items: center;
 }
 
 .action-buttons-row .el-button {
-  padding: 4px 10px;
+  padding: 4px 12px;
   font-size: 12px;
   border-radius: 4px;
-}
-
-.action-buttons-row .btn-hide {
-  background: #f5f7fa;
-  color: #606266;
-  border-color: #dcdfe6;
-}
-
-.action-buttons-row .btn-show {
-  background: #fff;
-  color: #667eea;
-  border-color: #667eea;
 }
 
 .pagination-wrapper {

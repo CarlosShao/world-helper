@@ -441,6 +441,53 @@ async function startServer() {
   });
 
   // 获取单词树形结构
+  app.get('/api/words/batch-relations', (req, res) => {
+    const wordIds = (req.query.ids as string)?.split(',').map(id => parseInt(id)) || [];
+    
+    if (wordIds.length === 0) {
+      return res.json({ relations: [], wordMap: {} });
+    }
+
+    const placeholders = wordIds.map(() => '?').join(',');
+    
+    const words = all(`SELECT * FROM words WHERE id IN (${placeholders})`, wordIds);
+    
+    const childIds = all(`SELECT child_word_id FROM word_relations WHERE root_word_id IN (${placeholders})`, wordIds);
+    const childWordIds = childIds.map(r => r.child_word_id);
+    
+    let childWords = [];
+    if (childWordIds.length > 0) {
+      const childPlaceholders = childWordIds.map(() => '?').join(',');
+      childWords = all(`SELECT * FROM words WHERE id IN (${childPlaceholders})`, childWordIds);
+    }
+    
+    const allWordsData = [...words, ...childWords];
+    const wordMap = new Map<number, any>();
+    allWordsData.forEach(w => {
+      wordMap.set(w.id, { ...w, derivatives: [], phrases: [] });
+    });
+    
+    const relations = all(`SELECT * FROM word_relations WHERE root_word_id IN (${placeholders})`, wordIds);
+    
+    relations.forEach(rel => {
+      const child = wordMap.get(rel.child_word_id);
+      const parent = wordMap.get(rel.root_word_id);
+      
+      if (child && parent) {
+        child.relationId = rel.id;
+        child.relationType = rel.relation_type;
+        child.parentId = rel.root_word_id;
+        if (rel.relation_type === 'derivative') {
+          parent.derivatives.push(child);
+        } else {
+          parent.phrases.push(child);
+        }
+      }
+    });
+    
+    res.json({ relations, wordMap: Object.fromEntries(wordMap) });
+  });
+
   app.get('/api/words/tree', (req, res) => {
     const search = (req.query.search as string) || '';
 
