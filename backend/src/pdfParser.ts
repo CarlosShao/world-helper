@@ -179,7 +179,12 @@ function cleanFooterData(text: string): string {
     /在学配套词书/g,
     /Shao Ye.*词表.*共.*词.*\/.*页.*二维码/g,
     /词表全部.*共.*词/g,
-    /扫描二维码/g
+    /扫描二维码/g,
+    // 更通用的模式
+    /[Ss]hao\s*[Yy]e.*词表.*共.*词/g,
+    /词表全部.*共.*词.*页/g,
+    /共\s*\d+\s*词.*页.*二维码/g,
+    /\d+\/\d+\s*页.*二维码/g
   ];
   
   let result = text;
@@ -201,7 +206,10 @@ function isFooterLine(line: string): boolean {
     /^下载\s*App/,                    // 下载 App
     /^在学配套词书/,                   // 在学配套词书
     /^扫码.*二维码/,                   // 扫码二维码
-    /^单词不用背.*自然会/             // 单词不用背，自然会
+    /^单词不用背.*自然会/,             // 单词不用背，自然会
+    /^[Ss]hao\s*[Yy]e.*词表/,         // Shao Ye 的词表
+    /^词表全部.*共.*词/,              // 词表全部 共 X 词
+    /\d+\/\d+\s*页.*二维码/          // X/X 页 扫描二维码
   ];
   
   return footerPatterns.some(pattern => pattern.test(line));
@@ -214,9 +222,9 @@ function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
   
   // 智能合并跨行内容
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    let line = lines[i];
     
-    // 跳过页脚脏数据行（使用更精确的检测）
+    // 跳过纯页脚脏数据行（使用更精确的检测）
     if (isFooterLine(line)) {
       continue;
     }
@@ -236,14 +244,19 @@ function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
       const nextLine = i + 1 < lines.length ? lines[i + 1] : '';
       const nextIsNumber = /^\d+$/.test(nextLine.trim());
       
+      // 清理行内的页脚脏数据
+      line = cleanFooterData(line);
+      
       if (nextIsNumber) {
-        // 如果下一行是序号，检查当前行是否是页脚
-        if (!isFooterLine(line)) {
+        // 如果下一行是序号，检查当前行清理后是否还有内容
+        if (line.trim()) {
           currentContent.push(line);
         }
       } else {
         // 下一行不是序号，继续添加（可能是跨行的内容）
-        currentContent.push(line);
+        if (line.trim()) {
+          currentContent.push(line);
+        }
       }
     }
   }
