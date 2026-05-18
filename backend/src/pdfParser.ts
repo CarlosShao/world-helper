@@ -176,7 +176,10 @@ function cleanFooterData(text: string): string {
     /近日已学.*复习/g,
     /扫码听单词/g,
     /纸上默写.*耳边复习/g,
-    /在学配套词书/g
+    /在学配套词书/g,
+    /Shao Ye.*词表.*共.*词.*\/.*页.*二维码/g,
+    /词表全部.*共.*词/g,
+    /扫描二维码/g
   ];
   
   let result = text;

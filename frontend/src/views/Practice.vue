@@ -167,9 +167,24 @@ const hasFromIndex = computed(() => route.query.fromIndex !== undefined)
 
 const loadWords = async () => {
   try {
-    const res = await wordApi.getWords(1, 1000)
-    words.value = res.data.words
-    totalWords.value = res.data.total || res.data.words.length
+    // 获取第一页数据以获取总数
+    const firstPage = await wordApi.getWords(1, 1000)
+    totalWords.value = firstPage.data.total || firstPage.data.words.length
+    
+    // 如果总数超过1000，分批获取所有单词
+    if (totalWords.value > 1000) {
+      const pages = Math.ceil(totalWords.value / 1000)
+      const allWords = [...firstPage.data.words]
+      
+      for (let page = 2; page <= pages; page++) {
+        const res = await wordApi.getWords(page, 1000)
+        allWords.push(...res.data.words)
+      }
+      
+      words.value = allWords
+    } else {
+      words.value = firstPage.data.words
+    }
   } catch (error) {
     ElMessage.error('加载单词失败')
   }
