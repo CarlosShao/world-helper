@@ -35,7 +35,7 @@
               style="width: 220px;"
               clearable
               @keyup.enter="loadWords"
-              @clear="loadWords"
+              @clear="handleSearchClear"
             >
               <template #prefix>
                 <el-icon><Search /></el-icon>
@@ -547,12 +547,15 @@ const batchDeleteSelected = async () => {
   }
 }
 
+const handleSearchClear = () => {
+  currentPage.value = 1
+  searchText.value = ''
+  loadWords()
+}
+
 const loadWords = async () => {
   loading.value = true
   try {
-    if (currentPage.value > 1 && !searchText.value) {
-      currentPage.value = 1
-    }
     const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
     tableData.value = res.data.words
     total.value = res.data.total
