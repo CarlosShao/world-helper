@@ -79,7 +79,7 @@
           <el-table-column type="selection" width="55" align="center" :selectable="checkSelectable" />
           <el-table-column label="序号" width="70" align="center">
             <template #default="{ row, $index }">
-              <span v-if="!row.isChild">{{ (currentPage - 1) * pageSize + $index + 1 }}</span>
+              <span v-if="!row.isChild && row.type !== 'group'">{{ (currentPage - 1) * pageSize + $index + 1 }}</span>
             </template>
           </el-table-column>
           <el-table-column label="英文" width="220" show-overflow-tooltip>

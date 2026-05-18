@@ -207,6 +207,8 @@ const clearProgress = async () => {
     await wordApi.saveSetting('practiceIndex', '0')
     savedIndex.value = 0
     currentIndex.value = 0
+    showResult.value = false
+    showCurrentWord()
     ElMessage.success('进度已清除')
   } catch (error) {
     if (error !== 'cancel') {
@@ -278,8 +280,22 @@ const showAnswer = () => {
   ElMessage.info(`答案: ${currentWord.value?.english}`)
 }
 
-const skipWord = () => {
-  nextWord()
+const skipWord = async () => {
+  currentIndex.value++
+  await autoSaveProgress()
+  if (currentIndex.value >= words.value.length) {
+    currentIndex.value = 0
+    await autoSaveProgress()
+    ElMessage.success('恭喜完成一轮练习！')
+    if (sessionId.value) {
+      try {
+        await wordApi.endPractice(sessionId.value)
+      } catch (error) {
+        console.error('End practice error:', error)
+      }
+    }
+  }
+  showCurrentWord()
 }
 
 const tryAgain = () => {
