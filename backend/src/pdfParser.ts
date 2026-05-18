@@ -167,8 +167,8 @@ function cleanFooterData(text: string): string {
   let result = text;
   
   // 方法1：查找脏数据起始位置并截断
-  // 匹配"全部"或"共"后面跟着数字的模式
-  const dirtyMatch = result.match(/(全部|共)\s*\d+/);
+  // 匹配"全部"后面跟着任意内容
+  const dirtyMatch = result.match(/(全部|共|已学|复习完成|Shao|Ye|词表|二维码)/);
   if (dirtyMatch && dirtyMatch.index !== undefined && dirtyMatch.index > 0) {
     result = result.substring(0, dirtyMatch.index).trim();
   }
