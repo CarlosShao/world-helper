@@ -147,6 +147,10 @@
                     <el-icon><Edit /></el-icon>
                     手动分类
                   </el-button>
+                  <el-button size="mini" type="success" @click="startPracticeFromWord(row.id)">
+                    <el-icon><EditPen /></el-icon>
+                    随手拼
+                  </el-button>
                   <el-button size="mini" type="danger" @click="deleteWord(row)">
                     <el-icon><Delete /></el-icon>
                     删除
@@ -420,7 +424,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Search, View, Hide, Edit, Upload, 
   DocumentAdd, Notebook, Document, Refresh,
-  Delete, Loading, Plus
+  Delete, Loading, Plus, EditPen
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { wordApi, posApi, type Word } from '../api'
@@ -864,6 +868,19 @@ const cancelEdit = () => {
   editingId.value = null
   editingField.value = ''
   editingValue.value = ''
+}
+
+// 从指定单词开始随手拼
+const startPracticeFromWord = async (wordId: number) => {
+  try {
+    const index = words.value.findIndex(w => w.id === wordId)
+    if (index !== -1) {
+      await wordApi.saveSetting('practiceIndex', index.toString())
+      router.push('/practice')
+    }
+  } catch (error) {
+    ElMessage.error('无法开始练习')
+  }
 }
 
 // 开始添加新单词

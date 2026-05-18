@@ -7,10 +7,20 @@
         </div>
         <h2>随手拼练习</h2>
         <p>根据中文提示拼写英文单词，提升记忆效果</p>
-        <el-button type="primary" size="large" @click="startPractice" class="start-btn">
-          <el-icon style="margin-right: 8px;"><CaretRight /></el-icon>
-          开始练习
-        </el-button>
+        <div class="start-buttons">
+          <el-button type="primary" size="large" @click="startPractice" class="start-btn">
+            <el-icon style="margin-right: 8px;"><CaretRight /></el-icon>
+            开始练习
+          </el-button>
+          <el-button size="large" @click="clearProgress" class="clear-btn">
+            <el-icon style="margin-right: 8px;"><Trash2 /></el-icon>
+            清除进度
+          </el-button>
+        </div>
+        <div v-if="savedIndex > 0" class="progress-hint">
+          <el-icon><Clock /></el-icon>
+          <span>上次练习到第 {{ savedIndex + 1 }} 个单词</span>
+        </div>
       </div>
     </el-card>
 
@@ -26,10 +36,20 @@
           :stroke-width="8"
           class="progress-line"
         />
-        <el-button @click="saveProgress" size="small" text>
-          <el-icon><FolderChecked /></el-icon>
-          保存进度
-        </el-button>
+        <div class="progress-actions">
+          <el-button @click="saveProgress" size="small" text>
+            <el-icon><FolderChecked /></el-icon>
+            保存进度
+          </el-button>
+          <el-button @click="goBack" size="small" text :disabled="currentIndex === 0">
+            <el-icon><Left /></el-icon>
+            上一个
+          </el-button>
+          <el-button @click="goHome" size="small" text>
+            <el-icon><Home /></el-icon>
+            返回首页
+          </el-button>
+        </div>
       </div>
 
       <div class="word-display">
@@ -94,16 +114,17 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   EditPen, CaretRight, FolderChecked, Edit, Check, View, Right, 
-  CircleCheckFilled, CircleCloseFilled, RefreshRight 
+  CircleCheckFilled, CircleCloseFilled, RefreshRight, Trash2, Clock, Left, Home
 } from '@element-plus/icons-vue'
 import { wordApi, type Word } from '../api'
 
 const router = useRouter()
 const words = ref<Word[]>([])
 const currentIndex = ref(0)
+const savedIndex = ref(0)
 const currentWord = ref<Word | null>(null)
 const userAnswer = ref('')
 const showResult = ref(false)
@@ -125,7 +146,9 @@ const loadProgress = async () => {
   try {
     const res = await wordApi.getSetting('practiceIndex')
     if (res.data.value !== null) {
-      currentIndex.value = parseInt(res.data.value)
+      const index = parseInt(res.data.value)
+      savedIndex.value = index
+      currentIndex.value = index
     }
   } catch (error) {
     console.error('Load progress error:', error)
@@ -141,8 +164,37 @@ const saveProgress = async () => {
   }
 }
 
+const autoSaveProgress = async () => {
+  try {
+    await wordApi.saveSetting('practiceIndex', currentIndex.value.toString())
+  } catch (error) {
+    console.error('Auto save progress error:', error)
+  }
+}
+
+const clearProgress = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要清除练习进度吗？下次将从第一个单词开始练习。',
+      '清除进度',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    await wordApi.saveSetting('practiceIndex', '0')
+    savedIndex.value = 0
+    currentIndex.value = 0
+    ElMessage.success('进度已清除')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('清除失败')
+    }
+  }
+}
+
 const startPractice = async () => {
-  // 开始新的练习会话
   try {
     const res = await wordApi.startPractice()
     sessionId.value = res.data.sessionId
@@ -184,7 +236,6 @@ const checkAnswer = async () => {
   checking.value = false
 
   if (!isCorrect.value) {
-    // 添加到错题集
     await wordApi.addErrorWord(currentWord.value!.id)
   }
 }
@@ -208,10 +259,11 @@ const tryAgain = () => {
 const nextWord = async () => {
   if (isCorrect.value) {
     currentIndex.value++
+    await autoSaveProgress()
     if (currentIndex.value >= words.value.length) {
       currentIndex.value = 0
+      await autoSaveProgress()
       ElMessage.success('恭喜完成一轮练习！')
-      // 完成练习，结束会话
       if (sessionId.value) {
         try {
           await wordApi.endPractice(sessionId.value)
@@ -224,12 +276,22 @@ const nextWord = async () => {
   showCurrentWord()
 }
 
+const goBack = () => {
+  if (currentIndex.value > 0) {
+    currentIndex.value--
+    showCurrentWord()
+  }
+}
+
+const goHome = () => {
+  router.push('/')
+}
+
 onMounted(() => {
   startPractice()
 })
 
 onBeforeUnmount(async () => {
-  // 用户离开页面时，结束练习会话
   if (sessionId.value) {
     try {
       await wordApi.endPractice(sessionId.value)
@@ -282,9 +344,41 @@ onBeforeUnmount(async () => {
   font-size: 15px;
 }
 
+.start-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
 .start-btn {
   padding: 12px 40px;
   font-size: 16px;
+}
+
+.clear-btn {
+  padding: 12px 40px;
+  font-size: 16px;
+  background: #f5f7fa;
+  color: #606266;
+  border: 1px solid #dcdfe6;
+}
+
+.clear-btn:hover {
+  background: #e4e7ed;
+  color: #606266;
+}
+
+.progress-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fffbe6;
+  border-radius: 8px;
+  color: #d4a76a;
+  font-size: 14px;
 }
 
 .progress-bar {
@@ -317,6 +411,11 @@ onBeforeUnmount(async () => {
 
 .progress-line {
   flex: 1;
+}
+
+.progress-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .word-display {
@@ -453,6 +552,14 @@ onBeforeUnmount(async () => {
   .btn-group {
     flex-wrap: wrap;
   }
+  
+  .progress-bar {
+    flex-wrap: wrap;
+  }
+  
+  .progress-actions {
+    margin-top: 8px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -475,6 +582,11 @@ onBeforeUnmount(async () => {
   .progress-bar {
     flex-wrap: wrap;
     gap: 12px;
+  }
+  
+  .start-buttons {
+    flex-direction: column;
+    align-items: center;
   }
 }
 </style>
