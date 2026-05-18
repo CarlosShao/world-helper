@@ -69,7 +69,7 @@
         <el-table 
           :data="tableData" 
           class="word-table"
-          style="width: 100%" 
+          style="width: 100%; min-width: 1200px;" 
           stripe
           row-key="id"
           :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
@@ -1045,16 +1045,59 @@ onMounted(() => {
 .table-wrapper {
   width: 100%;
   overflow-x: auto;
+  border-radius: 8px;
+}
+
+.table-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .word-table {
-  min-width: 100%;
+  min-width: 1200px;
+}
+
+.word-table :deep(.el-table__header-wrapper) {
+  background: #f8f9fb !important;
+}
+
+.word-table :deep(.el-table__header th) {
+  background: #f8f9fb !important;
+  color: #606266;
+  font-weight: 600;
+}
+
+.word-table :deep(.el-table__body td) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.word-table :deep(.el-table__header th.el-table__cell) {
+  background: #f8f9fb !important;
 }
 
 /* 操作栏固定列的样式优化 */
 .word-table :deep(.el-table__fixed-right) {
   box-shadow: -4px 0 6px rgba(0, 0, 0, 0.08);
   z-index: 10;
+}
+
+.word-table :deep(.el-table__fixed-right .el-table__header th) {
+  background: #f8f9fb !important;
 }
 
 .word-table :deep(.el-table__fixed-right-patch) {
