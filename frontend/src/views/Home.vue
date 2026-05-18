@@ -550,12 +550,18 @@ const batchDeleteSelected = async () => {
 const handleSearchClear = () => {
   currentPage.value = 1
   searchText.value = ''
+  // 跳转到不带page参数的首页，确保完全重置
+  router.push('/')
   loadWords()
 }
 
 const loadWords = async () => {
   loading.value = true
   try {
+    // 如果搜索为空且当前不是第1页，强制重置到第1页
+    if (!searchText.value && currentPage.value > 1) {
+      currentPage.value = 1
+    }
     const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
     tableData.value = res.data.words
     total.value = res.data.total
@@ -897,6 +903,8 @@ onMounted(() => {
   const pageParam = route.query.page
   if (pageParam) {
     currentPage.value = parseInt(pageParam as string)
+  } else {
+    currentPage.value = 1
   }
   loadWords()
   loadPartsOfSpeech()
