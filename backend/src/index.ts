@@ -189,7 +189,7 @@ async function startServer() {
     res.json({ success: true, imports: recentImports });
   });
 
-  // 获取单词列表（分页）
+  // 获取单词列表（分页）- 优化版：直接包含关系数据
   app.get('/api/words', (req, res) => {
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = parseInt(req.query.pageSize as string) || 20;
@@ -210,8 +210,63 @@ async function startServer() {
       total = get('SELECT COUNT(*) as total FROM words')?.total || 0;
     }
 
+    // 获取关系数据并构建树形结构
+    const wordIds = words.map(w => w.id);
+    const relations = all('SELECT * FROM word_relations WHERE root_word_id IN (' + wordIds.map(() => '?').join(',') + ')', wordIds);
+    const childWordIds = [...new Set(relations.map(r => r.child_word_id))];
+    let childWords = [];
+    if (childWordIds.length > 0) {
+      childWords = all('SELECT * FROM words WHERE id IN (' + childWordIds.map(() => '?').join(',') + ')', childWordIds);
+    }
+    
+    const wordMap = new Map();
+    words.forEach(w => wordMap.set(w.id, { ...w, derivatives: [], phrases: [] }));
+    childWords.forEach(w => wordMap.set(w.id, { ...w, derivatives: [], phrases: [] }));
+    
+    relations.forEach(r => {
+      const child = wordMap.get(r.child_word_id);
+      const parent = wordMap.get(r.root_word_id);
+      if (child && parent) {
+        if (r.relation_type === 'derivative') {
+          parent.derivatives.push(child);
+        } else {
+          parent.phrases.push(child);
+        }
+      }
+    });
+
+    const result = words.map(word => {
+      const wordData = wordMap.get(word.id);
+      const children = [];
+      
+      if (wordData?.derivatives?.length > 0) {
+        children.push({
+          id: `deriv-${word.id}`,
+          title: '衍生词',
+          type: 'group',
+          children: wordData.derivatives.map(d => ({ ...d, isChild: true }))
+        });
+      }
+      
+      if (wordData?.phrases?.length > 0) {
+        children.push({
+          id: `phrase-${word.id}`,
+          title: '短语',
+          type: 'group',
+          children: wordData.phrases.map(p => ({ ...p, isChild: true }))
+        });
+      }
+      
+      return {
+        ...word,
+        hasChildren: children.length > 0,
+        children,
+        isChild: false
+      };
+    });
+
     res.json({
-      words,
+      words: result,
       total,
       page,
       pageSize

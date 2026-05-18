@@ -69,16 +69,16 @@
         <el-table 
           :data="tableData" 
           class="word-table"
-          style="width: 100%; min-width: 1200px;" 
+          style="width: 100%;" 
           stripe
           row-key="id"
           :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
           v-loading="loading"
           @selection-change="handleSelectionChange"
         >
-          <el-table-column type="selection" width="50" align="center" :selectable="checkSelectable" />
+          <el-table-column type="selection" width="55" align="center" :selectable="checkSelectable" />
           <el-table-column type="index" label="序号" width="70" align="center" />
-          <el-table-column label="英文" width="180" show-overflow-tooltip>
+          <el-table-column label="英文" width="220" show-overflow-tooltip>
             <template #default="{ row }">
               <template v-if="row.type === 'group'">
                 <el-tag size="small" type="warning">{{ row.title }}</el-tag>
@@ -98,7 +98,7 @@
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="词性" width="150" align="left">
+          <el-table-column label="词性" width="130" align="left">
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
                 <template v-if="editingId === row.id && editingField === 'part_of_speech'">
@@ -114,7 +114,7 @@
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="中文" width="400" show-overflow-tooltip>
+          <el-table-column label="中文" min-width="350" show-overflow-tooltip>
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
                 <template v-if="editingId === row.id && editingField === 'chinese'">
@@ -127,7 +127,7 @@
               </template>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="280" align="center" fixed="right">
+          <el-table-column label="操作" width="260" align="center" fixed="right">
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id && !row.isChild">
                 <div class="action-buttons-row">
@@ -544,53 +544,9 @@ const loadWords = async () => {
   loading.value = true
   try {
     const res = await wordApi.getWords(currentPage.value, pageSize.value, searchText.value)
-    const flatWords = res.data.words
-    
-    const wordIds = flatWords.map(w => w.id).join(',')
-    const relationsRes = await fetch(`/api/words/batch-relations?ids=${wordIds}`)
-    const relationsData = await relationsRes.json()
-    const wordMap = relationsData.wordMap || {}
-    
-    const result: any[] = []
-    for (const word of flatWords) {
-      const wordData = wordMap[word.id]
-      const childItems: any[] = []
-      
-      if (wordData?.derivatives && wordData.derivatives.length > 0) {
-        childItems.push({
-          id: `deriv-${word.id}`,
-          title: '衍生词',
-          type: 'group',
-          children: wordData.derivatives.map((d: any) => ({
-            ...d,
-            isChild: true
-          }))
-        })
-      }
-      
-      if (wordData?.phrases && wordData.phrases.length > 0) {
-        childItems.push({
-          id: `phrase-${word.id}`,
-          title: '短语',
-          type: 'group',
-          children: wordData.phrases.map((p: any) => ({
-            ...p,
-            isChild: true
-          }))
-        })
-      }
-      
-      result.push({
-        ...word,
-        hasChildren: childItems.length > 0,
-        children: childItems,
-        isChild: false
-      })
-    }
-    
-    tableData.value = result
+    tableData.value = res.data.words
     total.value = res.data.total
-    words.value = flatWords
+    words.value = res.data.words.map((w: any) => ({ ...w }))
   } catch (error) {
     ElMessage.error('加载数据失败')
   } finally {
@@ -924,9 +880,10 @@ onMounted(() => {
 
 <style scoped>
 .home {
-  max-width: 95%;
+  width: 100%;
+  padding: 0 20px;
   margin: 0 auto;
-  min-width: 1200px;
+  box-sizing: border-box;
 }
 
 .word-list-card {
