@@ -13,12 +13,12 @@
             开始练习
           </el-button>
           <el-button size="large" @click="clearProgress" class="clear-btn">
-            <el-icon style="margin-right: 8px;"><Trash2 /></el-icon>
+            <el-icon style="margin-right: 8px;"><Delete /></el-icon>
             清除进度
           </el-button>
         </div>
         <div v-if="savedIndex > 0" class="progress-hint">
-          <el-icon><Clock /></el-icon>
+          <el-icon><Timer /></el-icon>
           <span>上次练习到第 {{ savedIndex + 1 }} 个单词</span>
         </div>
       </div>
@@ -42,11 +42,11 @@
             保存进度
           </el-button>
           <el-button @click="goBack" size="small" text :disabled="currentIndex === 0">
-            <el-icon><Left /></el-icon>
+            <el-icon><ArrowLeft /></el-icon>
             上一个
           </el-button>
           <el-button @click="goHome" size="small" text>
-            <el-icon><Home /></el-icon>
+            <el-icon><HomeFilled /></el-icon>
             返回首页
           </el-button>
         </div>
@@ -83,7 +83,7 @@
             显示答案
           </el-button>
           <el-button size="large" @click="skipWord">
-            <el-icon><Right /></el-icon>
+            <el-icon><ArrowRight /></el-icon>
             跳过
           </el-button>
         </el-form-item>
@@ -98,11 +98,11 @@
           <span class="result-text">{{ isCorrect ? '回答正确！' : '回答错误' }}</span>
           <p v-if="!isCorrect" class="correct-answer">正确答案: <strong>{{ currentWord.english }}</strong></p>
           <el-button v-if="!isCorrect" type="primary" @click="tryAgain" class="result-btn">
-            <el-icon style="margin-right: 6px;"><RefreshRight /></el-icon>
+            <el-icon style="margin-right: 6px;"><Refresh /></el-icon>
             再试一次
           </el-button>
           <el-button v-else type="success" @click="nextWord" class="result-btn">
-            <el-icon style="margin-right: 6px;"><Right /></el-icon>
+            <el-icon style="margin-right: 6px;"><ArrowRight /></el-icon>
             下一个
           </el-button>
         </div>
@@ -116,8 +116,8 @@ import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
-  EditPen, CaretRight, FolderChecked, Edit, Check, View, Right, 
-  CircleCheckFilled, CircleCloseFilled, RefreshRight, Trash2, Clock, Left, Home
+  EditPen, CaretRight, FolderChecked, Edit, Check, View, ArrowRight, 
+  CircleCheckFilled, CircleCloseFilled, Refresh, Delete, Timer, ArrowLeft, HomeFilled
 } from '@element-plus/icons-vue'
 import { wordApi, type Word } from '../api'
 
