@@ -31,7 +31,7 @@
           <span class="progress-count">{{ getProgressText() }}</span>
         </div>
         <el-progress 
-          :percentage="Math.round((currentIndex / words.length) * 100)" 
+          :percentage="Math.round((correctCount / totalWords) * 100)" 
           :show-text="false"
           :stroke-width="8"
           class="progress-line"
@@ -143,6 +143,7 @@ const sessionId = ref<number | null>(null)
 const fromIndex = ref<number | null>(null)
 const fromPage = ref<number | null>(null)
 const totalWords = ref(0)
+const correctCount = ref(0)
 
 const loadWords = async () => {
   try {
@@ -155,12 +156,7 @@ const loadWords = async () => {
 }
 
 const getProgressText = () => {
-  if (fromIndex.value !== null) {
-    const progress = currentIndex.value - fromIndex.value + 1
-    const total = totalWords.value - fromIndex.value
-    return `${progress} / ${total}`
-  }
-  return `${currentIndex.value + 1} / ${totalWords.value}`
+  return `${correctCount.value} / ${totalWords.value}`
 }
 
 const loadProgress = async () => {
@@ -169,7 +165,6 @@ const loadProgress = async () => {
     if (res.data.value !== null) {
       const index = parseInt(res.data.value)
       savedIndex.value = index
-      currentIndex.value = index
     }
   } catch (error) {
     console.error('Load progress error:', error)
@@ -207,6 +202,7 @@ const clearProgress = async () => {
     await wordApi.saveSetting('practiceIndex', '0')
     savedIndex.value = 0
     currentIndex.value = 0
+    correctCount.value = 0
     showResult.value = false
     showCurrentWord()
     ElMessage.success('进度已清除')
@@ -243,11 +239,14 @@ const startPractice = async () => {
     }
   } else {
     await loadProgress()
-    if (currentIndex.value >= words.value.length) {
+    if (savedIndex.value >= words.value.length) {
       currentIndex.value = 0
+    } else {
+      currentIndex.value = savedIndex.value
     }
   }
   
+  correctCount.value = 0
   showCurrentWord()
 }
 
@@ -308,6 +307,7 @@ const tryAgain = () => {
 
 const nextWord = async () => {
   if (isCorrect.value) {
+    correctCount.value++
     currentIndex.value++
     await autoSaveProgress()
     if (currentIndex.value >= words.value.length) {
