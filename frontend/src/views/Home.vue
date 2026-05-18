@@ -78,8 +78,8 @@
         >
           <el-table-column type="selection" width="55" align="center" :selectable="checkSelectable" />
           <el-table-column label="序号" width="70" align="center">
-            <template #default="{ $index }">
-              {{ (currentPage - 1) * pageSize + $index + 1 }}
+            <template #default="{ row, $index }">
+              <span v-if="!row.isChild">{{ (currentPage - 1) * pageSize + $index + 1 }}</span>
             </template>
           </el-table-column>
           <el-table-column label="英文" width="220" show-overflow-tooltip>
@@ -88,14 +88,14 @@
                 <el-tag size="small" type="warning">{{ row.title }}</el-tag>
               </template>
               <template v-else-if="row.id">
-                <template v-if="editingId === row.id && editingField === 'english'">
+                <template v-if="!row.isChild && editingId === row.id && editingField === 'english'">
                   <el-input v-model="editingValue" size="small" @blur="saveEdit()" @keyup.enter="saveEdit()" @keyup.esc="cancelEdit" ref="editInput" />
                 </template>
                 <template v-else>
                   <span 
                     v-if="!hiddenEnglish.has(row.id)" 
-                    class="word-text editable" 
-                    @click.stop="startEdit(row, 'english', $event)"
+                    :class="['word-text', !row.isChild ? 'editable' : '']" 
+                    @click.stop="!row.isChild && startEdit(row, 'english', $event)"
                   >{{ row.english }}</span>
                   <span v-else class="hidden-text">****</span>
                 </template>
@@ -105,15 +105,15 @@
           <el-table-column label="词性" width="130" align="left">
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
-                <template v-if="editingId === row.id && editingField === 'part_of_speech'">
+                <template v-if="!row.isChild && editingId === row.id && editingField === 'part_of_speech'">
                   <el-select v-model="editingValue" size="small" @change="saveEdit()" @blur="saveEdit()" filterable placeholder="选择词性">
                     <el-option label="(空)" value="" />
                     <el-option v-for="pos in partsOfSpeech" :key="pos.code" :label="`${pos.code} - ${pos.name}`" :value="pos.code" />
                   </el-select>
                 </template>
                 <template v-else>
-                  <el-tag v-if="row.part_of_speech" size="small" type="info" class="editable" @click.stop="startEdit(row, 'part_of_speech', $event)">{{ row.part_of_speech }}</el-tag>
-                  <span v-else class="editable" @click.stop="startEdit(row, 'part_of_speech', $event)" style="color: #909399; font-size: 12px;">点击添加</span>
+                  <el-tag v-if="row.part_of_speech" size="small" type="info" :class="!row.isChild ? 'editable' : ''" @click.stop="!row.isChild && startEdit(row, 'part_of_speech', $event)">{{ row.part_of_speech }}</el-tag>
+                  <span v-else :class="!row.isChild ? 'editable' : ''" @click.stop="!row.isChild && startEdit(row, 'part_of_speech', $event)" style="color: #909399; font-size: 12px;">{{ row.isChild ? '-' : '点击添加' }}</span>
                 </template>
               </template>
             </template>
@@ -121,11 +121,11 @@
           <el-table-column label="中文" min-width="350" show-overflow-tooltip>
             <template #default="{ row }">
               <template v-if="row.type !== 'group' && row.id">
-                <template v-if="editingId === row.id && editingField === 'chinese'">
+                <template v-if="!row.isChild && editingId === row.id && editingField === 'chinese'">
                   <el-input v-model="editingValue" size="small" @blur="saveEdit()" @keyup.enter="saveEdit()" @keyup.esc="cancelEdit" />
                 </template>
                 <template v-else>
-                  <span v-if="!hiddenChinese.has(row.id)" class="editable" @click.stop="startEdit(row, 'chinese', $event)">{{ row.chinese }}</span>
+                  <span v-if="!hiddenChinese.has(row.id)" :class="!row.isChild ? 'editable' : ''" @click.stop="!row.isChild && startEdit(row, 'chinese', $event)">{{ row.chinese }}</span>
                   <span v-else class="hidden-text">****</span>
                 </template>
               </template>
@@ -133,23 +133,23 @@
           </el-table-column>
           <el-table-column label="操作" width="380" align="center" fixed="right">
             <template #default="{ row }">
-              <template v-if="row.type !== 'group' && row.id && !row.isChild">
+              <template v-if="row.type !== 'group' && row.id">
                 <div class="action-buttons-row">
                   <el-tooltip :content="hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文'" placement="top">
-                    <el-button size="small" @click="toggleChinese(row.id)" :type="hiddenChinese.has(row.id) ? 'info' : 'default'">
+                    <el-button size="small" @click="toggleChinese(row.id)" :type="hiddenChinese.has(row.id) ? 'info' : 'default'" v-if="!row.isChild">
                       <el-icon><View /></el-icon>
                     </el-button>
                   </el-tooltip>
                   <el-tooltip :content="hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文'" placement="top">
-                    <el-button size="small" @click="toggleEnglish(row.id)" :type="hiddenEnglish.has(row.id) ? 'info' : 'default'">
+                    <el-button size="small" @click="toggleEnglish(row.id)" :type="hiddenEnglish.has(row.id) ? 'info' : 'default'" v-if="!row.isChild">
                       <el-icon><Hide /></el-icon>
                     </el-button>
                   </el-tooltip>
-                  <el-button size="small" type="success" @click="startPracticeFromWord(row.id)">
+                  <el-button size="small" type="success" @click="startPracticeFromWord(row.id)" v-if="!row.isChild">
                     <el-icon><EditPen /></el-icon>
                     随手拼
                   </el-button>
-                  <el-dropdown trigger="click" size="small">
+                  <el-dropdown trigger="click" size="small" v-if="!row.isChild && !row.hasParent">
                     <el-button size="small" type="default">
                       <el-icon><More /></el-icon>
                       更多

@@ -41,6 +41,10 @@
             <el-icon><FolderChecked /></el-icon>
             保存进度
           </el-button>
+          <el-button @click="clearProgress" size="small" text>
+            <el-icon><Delete /></el-icon>
+            清除进度
+          </el-button>
           <el-button @click="goBack" size="small" text :disabled="currentIndex === 0">
             <el-icon><ArrowLeft /></el-icon>
             上一个
