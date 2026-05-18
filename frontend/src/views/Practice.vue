@@ -1,6 +1,7 @@
 <template>
   <div class="practice">
-    <el-card v-if="!currentWord" class="start-card">
+    <!-- 开始页面 - 只有在没有fromIndex且没有currentWord时显示 -->
+    <el-card v-if="!currentWord && !hasFromIndex" class="start-card">
       <div class="start-content">
         <div class="icon-wrapper">
           <el-icon class="practice-icon"><EditPen /></el-icon>
@@ -24,107 +25,122 @@
       </div>
     </el-card>
 
-    <el-card v-else class="practice-card">
-      <div class="progress-bar">
-        <div class="progress-info">
-          <span class="progress-text">进度</span>
-          <span class="progress-count">{{ getProgressText() }}</span>
-        </div>
-        <el-progress 
-          :percentage="Math.round((currentIndex / words.length) * 100)" 
-          :show-text="false"
-          :stroke-width="8"
-          class="progress-line"
-        />
-        <div class="progress-actions">
-          <el-button @click="saveProgress" size="small" text>
-            <el-icon><FolderChecked /></el-icon>
-            保存进度
-          </el-button>
-          <el-button @click="goBack" size="small" text :disabled="currentIndex === 0">
-            <el-icon><ArrowLeft /></el-icon>
-            上一个
-          </el-button>
-          <el-button @click="goHome" size="small" text>
-            <el-icon><HomeFilled /></el-icon>
-            返回首页
-          </el-button>
-        </div>
+    <!-- 练习页面 - 当有currentWord或者有fromIndex时显示 -->
+    <el-card v-if="currentWord || hasFromIndex" class="practice-card">
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading-container">
+        <el-icon class="loading-icon is-loading" :size="40"><Loading /></el-icon>
+        <p>加载中...</p>
       </div>
 
-      <div class="word-display">
-        <div class="word-label">中文释义</div>
-        <h3 class="chinese">{{ currentWord.chinese }}</h3>
-        <el-tag size="small" type="info" class="pos-tag">{{ currentWord.part_of_speech }}</el-tag>
-      </div>
-
-      <el-form @submit.prevent="checkAnswer" class="answer-form">
-        <el-form-item>
-          <el-input
-            v-model="userAnswer"
-            placeholder="请输入英文单词..."
-            size="large"
-            ref="inputRef"
-            @keyup.enter="checkAnswer"
-            class="answer-input"
-          >
-            <template #prefix>
-              <el-icon><Edit /></el-icon>
-            </template>
-          </el-input>
-        </el-form-item>
-        <el-form-item class="btn-group">
-          <el-button type="primary" size="large" @click="checkAnswer" :loading="checking">
-            <el-icon style="margin-right: 6px;"><Check /></el-icon>
-            提交
-          </el-button>
-          <el-button size="large" @click="showAnswer">
-            <el-icon><View /></el-icon>
-            显示答案
-          </el-button>
-          <el-button size="large" @click="skipWord">
-            <el-icon><ArrowRight /></el-icon>
-            跳过
-          </el-button>
-        </el-form-item>
-      </el-form>
-
-      <transition name="fade">
-        <div v-if="showResult" class="result" :class="{ correct: isCorrect, wrong: !isCorrect }">
-          <div class="result-icon">
-            <el-icon v-if="isCorrect" :size="48"><CircleCheckFilled /></el-icon>
-            <el-icon v-else :size="48"><CircleCloseFilled /></el-icon>
+      <!-- 练习内容 -->
+      <template v-else>
+        <div class="progress-bar">
+          <div class="progress-info">
+            <span class="progress-text">进度</span>
+            <span class="progress-count">{{ getProgressText() }}</span>
           </div>
-          <span class="result-text">{{ isCorrect ? '回答正确！' : '回答错误' }}</span>
-          <p v-if="!isCorrect" class="correct-answer">正确答案: <strong>{{ currentWord.english }}</strong></p>
-          <el-button v-if="!isCorrect" type="primary" @click="tryAgain" class="result-btn">
-            <el-icon style="margin-right: 6px;"><Refresh /></el-icon>
-            再试一次
-          </el-button>
-          <el-button v-else type="success" @click="nextWord" class="result-btn">
-            <el-icon style="margin-right: 6px;"><ArrowRight /></el-icon>
-            下一个
-          </el-button>
+          <el-progress 
+            :percentage="Math.round((correctCount / practiceTotal) * 100)" 
+            :show-text="false"
+            :stroke-width="8"
+            class="progress-line"
+          />
+          <div class="progress-actions">
+            <el-button @click="saveProgress" size="small" text>
+              <el-icon><FolderChecked /></el-icon>
+              保存进度
+            </el-button>
+            <el-button @click="clearProgress" size="small" text>
+              <el-icon><Delete /></el-icon>
+              清除进度
+            </el-button>
+            <el-button @click="goBack" size="small" text :disabled="currentIndex === 0">
+              <el-icon><ArrowLeft /></el-icon>
+              上一个
+            </el-button>
+            <el-button @click="goHome" size="small" text>
+              <el-icon><HomeFilled /></el-icon>
+              返回首页
+            </el-button>
+          </div>
         </div>
-      </transition>
+
+        <div v-if="currentWord" class="word-display">
+          <div class="word-label">中文释义</div>
+          <h3 class="chinese">{{ currentWord.chinese }}</h3>
+          <el-tag size="small" type="info" class="pos-tag">{{ currentWord.part_of_speech }}</el-tag>
+        </div>
+
+        <el-form @submit.prevent="checkAnswer" class="answer-form">
+          <el-form-item>
+            <el-input
+              v-model="userAnswer"
+              placeholder="请输入英文单词..."
+              size="large"
+              ref="inputRef"
+              @keyup.enter="checkAnswer"
+              class="answer-input"
+            >
+              <template #prefix>
+                <el-icon><Edit /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item class="btn-group">
+            <el-button type="primary" size="large" @click="checkAnswer" :loading="checking">
+              <el-icon style="margin-right: 6px;"><Check /></el-icon>
+              提交
+            </el-button>
+            <el-button size="large" @click="showAnswer">
+              <el-icon><View /></el-icon>
+              显示答案
+            </el-button>
+            <el-button size="large" @click="skipWord">
+              <el-icon><ArrowRight /></el-icon>
+              跳过
+            </el-button>
+          </el-form-item>
+        </el-form>
+
+        <transition name="fade">
+          <div v-if="showResult" class="result" :class="{ correct: isCorrect, wrong: !isCorrect }">
+            <div class="result-icon">
+              <el-icon v-if="isCorrect" :size="48"><CircleCheckFilled /></el-icon>
+              <el-icon v-else :size="48"><CircleCloseFilled /></el-icon>
+            </div>
+            <span class="result-text">{{ isCorrect ? '回答正确！' : '回答错误' }}</span>
+            <p v-if="!isCorrect" class="correct-answer">正确答案: <strong>{{ currentWord?.english }}</strong></p>
+            <el-button v-if="!isCorrect" type="primary" @click="tryAgain" class="result-btn">
+              <el-icon style="margin-right: 6px;"><Refresh /></el-icon>
+              再试一次
+            </el-button>
+            <el-button v-else type="success" @click="nextWord" class="result-btn">
+              <el-icon style="margin-right: 6px;"><ArrowRight /></el-icon>
+              下一个
+            </el-button>
+          </div>
+        </transition>
+      </template>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   EditPen, CaretRight, FolderChecked, Edit, Check, View, ArrowRight, 
-  CircleCheckFilled, CircleCloseFilled, Refresh, Delete, Timer, ArrowLeft, HomeFilled
+  CircleCheckFilled, CircleCloseFilled, Refresh, Delete, Timer, ArrowLeft, HomeFilled, Loading
 } from '@element-plus/icons-vue'
 import { wordApi, type Word } from '../api'
-
-const router = useRouter()
 import { useRoute } from 'vue-router'
 
+const router = useRouter()
 const route = useRoute()
+
+// 核心数据
 const words = ref<Word[]>([])
 const currentIndex = ref(0)
 const savedIndex = ref(0)
@@ -135,16 +151,40 @@ const isCorrect = ref(false)
 const checking = ref(false)
 const inputRef = ref()
 const sessionId = ref<number | null>(null)
+const loading = ref(false)
 
+// 从首页过来的参数
 const fromIndex = ref<number | null>(null)
 const fromPage = ref<number | null>(null)
+
+// 总数和进度
 const totalWords = ref(0)
+const correctCount = ref(0)
+const practiceTotal = ref(0)
+
+// 判断是否有fromIndex参数
+const hasFromIndex = computed(() => route.query.fromIndex !== undefined)
 
 const loadWords = async () => {
   try {
-    const res = await wordApi.getWords(1, 1000)
-    words.value = res.data.words
-    totalWords.value = res.data.total || res.data.words.length
+    // 获取第一页数据以获取总数
+    const firstPage = await wordApi.getWords(1, 1000)
+    totalWords.value = firstPage.data.total || firstPage.data.words.length
+    
+    // 如果总数超过1000，分批获取所有单词
+    if (totalWords.value > 1000) {
+      const pages = Math.ceil(totalWords.value / 1000)
+      const allWords = [...firstPage.data.words]
+      
+      for (let page = 2; page <= pages; page++) {
+        const res = await wordApi.getWords(page, 1000)
+        allWords.push(...res.data.words)
+      }
+      
+      words.value = allWords
+    } else {
+      words.value = firstPage.data.words
+    }
   } catch (error) {
     ElMessage.error('加载单词失败')
   }
@@ -152,11 +192,10 @@ const loadWords = async () => {
 
 const getProgressText = () => {
   if (fromIndex.value !== null) {
-    const progress = currentIndex.value - fromIndex.value + 1
     const total = totalWords.value - fromIndex.value
-    return `${progress} / ${total}`
+    return `${correctCount.value} / ${total}`
   }
-  return `${currentIndex.value + 1} / ${totalWords.value}`
+  return `${correctCount.value} / ${totalWords.value}`
 }
 
 const loadProgress = async () => {
@@ -165,7 +204,6 @@ const loadProgress = async () => {
     if (res.data.value !== null) {
       const index = parseInt(res.data.value)
       savedIndex.value = index
-      currentIndex.value = index
     }
   } catch (error) {
     console.error('Load progress error:', error)
@@ -203,6 +241,9 @@ const clearProgress = async () => {
     await wordApi.saveSetting('practiceIndex', '0')
     savedIndex.value = 0
     currentIndex.value = 0
+    correctCount.value = 0
+    showResult.value = false
+    showCurrentWord()
     ElMessage.success('进度已清除')
   } catch (error) {
     if (error !== 'cancel') {
@@ -212,6 +253,7 @@ const clearProgress = async () => {
 }
 
 const startPractice = async () => {
+  loading.value = true
   try {
     const res = await wordApi.startPractice()
     sessionId.value = res.data.sessionId
@@ -235,18 +277,26 @@ const startPractice = async () => {
     if (queryFromPage !== undefined) {
       fromPage.value = parseInt(queryFromPage as string)
     }
+    practiceTotal.value = totalWords.value - fromIndex.value
   } else {
     await loadProgress()
-    if (currentIndex.value >= words.value.length) {
+    if (savedIndex.value >= words.value.length) {
       currentIndex.value = 0
+    } else {
+      currentIndex.value = savedIndex.value
     }
+    practiceTotal.value = totalWords.value
   }
   
+  correctCount.value = 0
+  loading.value = false
   showCurrentWord()
 }
 
 const showCurrentWord = () => {
-  currentWord.value = words.value[currentIndex.value]
+  if (words.value.length > 0 && currentIndex.value >= 0 && currentIndex.value < words.value.length) {
+    currentWord.value = words.value[currentIndex.value]
+  }
   userAnswer.value = ''
   showResult.value = false
   nextTick(() => {
@@ -255,27 +305,45 @@ const showCurrentWord = () => {
 }
 
 const checkAnswer = async () => {
+  if (!currentWord.value) return
   if (!userAnswer.value.trim()) {
     ElMessage.warning('请输入答案')
     return
   }
   checking.value = true
   
-  isCorrect.value = userAnswer.value.toLowerCase().trim() === currentWord.value!.english.toLowerCase().trim()
+  isCorrect.value = userAnswer.value.toLowerCase().trim() === currentWord.value.english.toLowerCase().trim()
   showResult.value = true
   checking.value = false
 
   if (!isCorrect.value) {
-    await wordApi.addErrorWord(currentWord.value!.id)
+    await wordApi.addErrorWord(currentWord.value.id)
   }
 }
 
 const showAnswer = () => {
-  ElMessage.info(`答案: ${currentWord.value?.english}`)
+  if (currentWord.value) {
+    ElMessage.info(`答案: ${currentWord.value.english}`)
+  }
 }
 
-const skipWord = () => {
-  nextWord()
+const skipWord = async () => {
+  if (!currentWord.value) return
+  currentIndex.value++
+  await autoSaveProgress()
+  if (currentIndex.value >= words.value.length) {
+    currentIndex.value = 0
+    await autoSaveProgress()
+    ElMessage.success('恭喜完成一轮练习！')
+    if (sessionId.value) {
+      try {
+        await wordApi.endPractice(sessionId.value)
+      } catch (error) {
+        console.error('End practice error:', error)
+      }
+    }
+  }
+  showCurrentWord()
 }
 
 const tryAgain = () => {
@@ -287,7 +355,9 @@ const tryAgain = () => {
 }
 
 const nextWord = async () => {
+  if (!currentWord.value) return
   if (isCorrect.value) {
+    correctCount.value++
     currentIndex.value++
     await autoSaveProgress()
     if (currentIndex.value >= words.value.length) {
@@ -322,6 +392,7 @@ const goHome = () => {
 }
 
 onMounted(() => {
+  // 直接调用startPractice，会根据是否有fromIndex来决定行为
   startPractice()
 })
 
@@ -554,6 +625,24 @@ onBeforeUnmount(async () => {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
   transform: translateY(10px);
+}
+
+.loading-container {
+  padding: 60px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-icon {
+  color: #667eea;
+}
+
+.loading-container p {
+  color: #909399;
+  font-size: 16px;
+  margin: 0;
 }
 
 @media (max-width: 768px) {

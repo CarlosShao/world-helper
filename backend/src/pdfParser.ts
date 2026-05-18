@@ -164,25 +164,20 @@ export async function parsePdf(filePath: string): Promise<ParseResult> {
 }
 
 function cleanFooterData(text: string): string {
-  // 页脚脏数据模式
-  const footerPatterns = [
-    /全部已学.*复习完成.*共.*词.*\/.*页/g,
-    /已学.*复习完成/g,
-    /共\s*\d+\s*词\s*\d+\/\d+\s*页/g,
-    /\d+\/\d+\s*页/g,
-    /背单词.*App/g,
-    /扫码.*二维码/g,
-    /单词不用背.*自然会/g,
-    /近日已学.*复习/g,
-    /扫码听单词/g,
-    /纸上默写.*耳边复习/g,
-    /在学配套词书/g
-  ];
-  
   let result = text;
-  for (const pattern of footerPatterns) {
-    result = result.replace(pattern, '').trim();
+  
+  // 方法1：查找脏数据起始位置并截断
+  // 匹配"全部"后面跟着任意内容
+  const dirtyMatch = result.match(/(全部|共|已学|复习完成|Shao|Ye|词表|二维码)/);
+  if (dirtyMatch && dirtyMatch.index !== undefined && dirtyMatch.index > 0) {
+    result = result.substring(0, dirtyMatch.index).trim();
   }
+  
+  // 方法2：如果还有剩余的页码信息，继续清理
+  result = result.replace(/\d+\/\d+\s*页/g, '').trim();
+  
+  // 方法3：清理二维码相关内容
+  result = result.replace(/扫描二维码/g, '').trim();
   
   return result;
 }
@@ -198,7 +193,10 @@ function isFooterLine(line: string): boolean {
     /^下载\s*App/,                    // 下载 App
     /^在学配套词书/,                   // 在学配套词书
     /^扫码.*二维码/,                   // 扫码二维码
-    /^单词不用背.*自然会/             // 单词不用背，自然会
+    /^单词不用背.*自然会/,             // 单词不用背，自然会
+    /^[Ss]hao\s*[Yy]e.*词表/,         // Shao Ye 的词表
+    /^词表全部.*共.*词/,              // 词表全部 共 X 词
+    /\d+\/\d+\s*页.*二维码/          // X/X 页 扫描二维码
   ];
   
   return footerPatterns.some(pattern => pattern.test(line));
@@ -211,9 +209,9 @@ function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
   
   // 智能合并跨行内容
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    let line = lines[i];
     
-    // 跳过页脚脏数据行（使用更精确的检测）
+    // 跳过纯页脚脏数据行（使用更精确的检测）
     if (isFooterLine(line)) {
       continue;
     }
@@ -233,14 +231,19 @@ function parseNumberedSectionWithArray(lines: string[]): Map<number, string[]> {
       const nextLine = i + 1 < lines.length ? lines[i + 1] : '';
       const nextIsNumber = /^\d+$/.test(nextLine.trim());
       
+      // 清理行内的页脚脏数据
+      line = cleanFooterData(line);
+      
       if (nextIsNumber) {
-        // 如果下一行是序号，检查当前行是否是页脚
-        if (!isFooterLine(line)) {
+        // 如果下一行是序号，检查当前行清理后是否还有内容
+        if (line.trim()) {
           currentContent.push(line);
         }
       } else {
         // 下一行不是序号，继续添加（可能是跨行的内容）
-        currentContent.push(line);
+        if (line.trim()) {
+          currentContent.push(line);
+        }
       }
     }
   }

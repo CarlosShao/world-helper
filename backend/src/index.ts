@@ -265,8 +265,16 @@ async function startServer() {
       };
     });
 
+    // 获取所有子词ID
+    const allChildWordIds = new Set(all('SELECT child_word_id FROM word_relations').map(r => r.child_word_id));
+    
+    const resultWithParentInfo = result.map(word => ({
+      ...word,
+      hasParent: allChildWordIds.has(word.id)
+    }));
+
     res.json({
-      words: result,
+      words: resultWithParentInfo,
       total,
       page,
       pageSize
