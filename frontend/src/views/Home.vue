@@ -46,11 +46,11 @@
             </el-button>
             <el-divider direction="vertical" />
             <el-button @click="toggleAllChinese" size="small">
-              <el-icon><View /></el-icon>
+              <el-icon><component :is="allChineseHidden ? 'View' : 'Hide'" /></el-icon>
               {{ allChineseHidden ? '显示中文' : '隐藏中文' }}
             </el-button>
             <el-button @click="toggleAllEnglish" size="small">
-              <el-icon><Hide /></el-icon>
+              <el-icon><component :is="allEnglishHidden ? 'View' : 'Hide'" /></el-icon>
               {{ allEnglishHidden ? '显示英文' : '隐藏英文' }}
             </el-button>
             <el-button type="success" @click="goToPractice" size="small">
@@ -137,12 +137,12 @@
                 <div class="action-buttons-row">
                   <el-tooltip :content="hiddenChinese.has(row.id) ? '显示中文' : '隐藏中文'" placement="top">
                     <el-button size="small" @click="toggleChinese(row.id)" :type="hiddenChinese.has(row.id) ? 'info' : 'default'" v-if="!row.isChild">
-                      <el-icon><View /></el-icon>
+                      <el-icon><component :is="hiddenChinese.has(row.id) ? 'View' : 'Hide'" /></el-icon>
                     </el-button>
                   </el-tooltip>
                   <el-tooltip :content="hiddenEnglish.has(row.id) ? '显示英文' : '隐藏英文'" placement="top">
                     <el-button size="small" @click="toggleEnglish(row.id)" :type="hiddenEnglish.has(row.id) ? 'info' : 'default'" v-if="!row.isChild">
-                      <el-icon><Hide /></el-icon>
+                      <el-icon><component :is="hiddenEnglish.has(row.id) ? 'View' : 'Hide'" /></el-icon>
                     </el-button>
                   </el-tooltip>
                   <el-button size="small" type="success" @click="startPracticeFromWord(row.id)" v-if="!row.isChild">
