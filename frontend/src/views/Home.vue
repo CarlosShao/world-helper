@@ -1257,15 +1257,25 @@ onMounted(() => {
     width: 100%;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 8px;
+    justify-items: stretch;
   }
   
   .header-actions .el-button {
     width: 100%;
-    padding: 12px 14px;
-    font-size: 14px;
+    padding: 10px 12px;
+    font-size: 13px;
     border-radius: 8px;
     box-sizing: border-box;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+  }
+  
+  .header-actions .el-button .el-icon {
+    margin-right: 4px;
   }
   
   .search-bar {
