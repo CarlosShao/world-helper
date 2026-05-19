@@ -29,7 +29,7 @@
             </div>
           </div>
           <div class="search-bar">
-            <div class="search-bar-left">
+            <div class="search-bar-row1">
               <el-input
                 v-model="searchText"
                 placeholder="搜索中英文..."
@@ -45,7 +45,12 @@
               <el-button type="primary" @click="loadWords" size="small">
                 <el-icon><Search /></el-icon>
               </el-button>
-              <el-divider direction="vertical" />
+              <el-button type="primary" @click="startAddNew" size="small">
+                <el-icon><Plus /></el-icon>
+                新增单词
+              </el-button>
+            </div>
+            <div class="search-bar-row2">
               <el-button @click="toggleAllChinese" size="small">
                 <el-icon v-if="allChineseHidden"><View /></el-icon>
                 <el-icon v-else><Hide /></el-icon>
@@ -59,12 +64,6 @@
               <el-button type="success" @click="goToPractice" size="small">
                 <el-icon style="margin-right: 4px;"><Edit /></el-icon>
                 随手拼
-              </el-button>
-            </div>
-            <div class="search-bar-right">
-              <el-button type="primary" @click="startAddNew" size="small">
-                <el-icon><Plus /></el-icon>
-                新增单词
               </el-button>
             </div>
           </div>
@@ -969,17 +968,16 @@ onMounted(() => {
   gap: 12px;
 }
 
-.search-bar-left {
+.search-bar-row1 {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.search-bar-right {
+.search-bar-row2 {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
 }
 
 .search-bar .el-button {
@@ -1259,8 +1257,9 @@ onMounted(() => {
   
   .header-actions .el-button {
     width: 100%;
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    border-radius: 8px;
   }
   
   .search-bar {
@@ -1271,34 +1270,36 @@ onMounted(() => {
     gap: 8px;
   }
   
-  .search-bar .el-input {
+  .search-bar-row1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
+  }
+  
+  .search-bar-row1 .el-input {
+    flex: 1;
+    width: auto;
+  }
+  
+  .search-bar-row1 .el-button:last-child {
+    margin-left: auto;
+  }
+  
+  .search-bar-row2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .search-bar .el-input {
     max-width: none;
   }
   
   .search-bar .el-button {
     padding: 5px 10px;
     font-size: 11px;
-  }
-  
-  .search-bar-left {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
-  }
-  
-  .search-bar-left .el-input {
-    flex: 1;
-  }
-  
-  .search-bar-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    justify-content: flex-start;
-    margin-left: 0;
   }
   
   .search-bar :deep(.el-divider--vertical) {
