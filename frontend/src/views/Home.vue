@@ -1218,38 +1218,51 @@ onMounted(() => {
   .card-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
   }
   
   .header-top {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 12px;
   }
   
   .header-left {
     width: 100%;
+    display: flex;
+    align-items: center;
   }
   
   .header-actions {
     width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
   
   .header-actions .el-button {
-    flex: 1;
-    min-width: calc(50% - 4px);
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 12px;
   }
   
   .search-bar {
     width: 100%;
+    display: flex;
     flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
   }
   
   .search-bar .el-input {
     flex: 1;
-    min-width: 150px;
+    min-width: 120px;
+    max-width: 200px;
+  }
+  
+  .search-bar .el-button {
+    padding: 6px 12px;
+    font-size: 12px;
   }
   
   .word-list-card :deep(.el-table) {
@@ -1263,11 +1276,30 @@ onMounted(() => {
   
   .pagination-wrapper {
     justify-content: center;
+    padding: 12px 8px;
+  }
+  
+  .pagination-wrapper :deep(.el-pagination) {
+    font-size: 12px;
+  }
+  
+  .pagination-wrapper :deep(.el-pagination__page) {
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    font-size: 12px;
+  }
+  
+  .pagination-wrapper :deep(.el-pagination__prev),
+  .pagination-wrapper :deep(.el-pagination__next) {
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
   }
   
   .action-buttons-row {
     flex-wrap: wrap;
-    gap: 2px;
+    gap: 4px;
   }
   
   .word-table :deep(.el-table__header th) {
@@ -1283,15 +1315,20 @@ onMounted(() => {
   .word-table :deep(.el-table__fixed-right) {
     display: none;
   }
+  
+  .word-table :deep(.el-table__column--selection) {
+    width: 40px;
+  }
 }
 
 @media (max-width: 480px) {
   .home {
-    padding: 0 8px;
+    padding: 0 6px;
   }
   
   .word-list-card {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
   }
   
   .word-list-card :deep(.el-button) {
@@ -1300,15 +1337,30 @@ onMounted(() => {
   }
   
   .word-list-card :deep(.el-table-column) {
-    min-width: 40px;
+    min-width: 35px;
   }
   
   .search-bar {
     gap: 4px;
   }
   
+  .search-bar .el-input {
+    min-width: 100px;
+    max-width: 160px;
+  }
+  
+  .search-bar .el-button {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+  
+  .header-actions {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  
   .header-actions .el-button {
-    min-width: calc(50% - 4px);
+    padding: 6px 8px;
     font-size: 11px;
   }
   
@@ -1331,18 +1383,20 @@ onMounted(() => {
   }
   
   .action-buttons-row .el-button {
-    padding: 2px 6px;
-    font-size: 10px;
+    padding: 2px 5px;
+    font-size: 9px;
+    min-width: 40px;
   }
   
   .new-word-row {
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
   
   .new-word-fields {
     flex-direction: column;
     width: 100%;
+    gap: 10px;
   }
   
   .field-input {
@@ -1351,14 +1405,56 @@ onMounted(() => {
   
   .field-group {
     width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .field-label {
+    font-size: 12px;
   }
   
   .pagination-wrapper {
-    padding: 0 8px;
+    padding: 10px 4px;
   }
   
   .pagination-wrapper :deep(.el-pagination) {
+    font-size: 10px;
+  }
+  
+  .pagination-wrapper :deep(.el-pagination__page) {
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    font-size: 10px;
+  }
+  
+  .pagination-wrapper :deep(.el-pagination__prev),
+  .pagination-wrapper :deep(.el-pagination__next) {
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+  }
+  
+  .pagination-wrapper :deep(.el-pagination__sizes) {
+    display: none;
+  }
+  
+  .pagination-wrapper :deep(.el-pagination__jump) {
+    display: none;
+  }
+  
+  .header-left .el-tag {
     font-size: 11px;
+    padding: 2px 8px;
+  }
+  
+  .header-icon {
+    font-size: 18px;
+  }
+  
+  .header-left span {
+    font-size: 16px;
   }
 }
 
