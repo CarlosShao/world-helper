@@ -29,7 +29,7 @@
             </div>
           </div>
           <div class="search-bar">
-            <div class="search-bar-row1">
+            <div class="search-bar-left">
               <el-input
                 v-model="searchText"
                 placeholder="搜索中英文..."
@@ -45,13 +45,7 @@
               <el-button type="primary" @click="loadWords" size="small">
                 <el-icon><Search /></el-icon>
               </el-button>
-              <el-divider direction="vertical" class="search-divider" />
-              <el-button type="primary" @click="startAddNew" size="small">
-                <el-icon><Plus /></el-icon>
-                新增单词
-              </el-button>
-            </div>
-            <div class="search-bar-row2">
+              <el-divider direction="vertical" />
               <el-button @click="toggleAllChinese" size="small">
                 <el-icon v-if="allChineseHidden"><View /></el-icon>
                 <el-icon v-else><Hide /></el-icon>
@@ -65,6 +59,12 @@
               <el-button type="success" @click="goToPractice" size="small">
                 <el-icon style="margin-right: 4px;"><Edit /></el-icon>
                 随手拼
+              </el-button>
+            </div>
+            <div class="search-bar-right">
+              <el-button type="primary" @click="startAddNew" size="small">
+                <el-icon><Plus /></el-icon>
+                新增单词
               </el-button>
             </div>
           </div>
@@ -966,23 +966,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
-.search-bar-row1 {
+.search-bar-left {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.search-bar-row2 {
+.search-bar-right {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.search-divider {
-  margin: 0 4px;
+  margin-left: auto;
 }
 
 .search-bar .el-button {
@@ -1280,29 +1277,31 @@ onMounted(() => {
   }
   
   .search-bar .el-button {
-    padding: 6px 12px;
-    font-size: 12px;
+    padding: 5px 10px;
+    font-size: 11px;
   }
   
-  .search-bar-row1 {
+  .search-bar-left {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
   }
   
-  .search-bar-row1 .el-input {
+  .search-bar-left .el-input {
     flex: 1;
   }
   
-  .search-bar-row2 {
+  .search-bar-right {
     display: flex;
     align-items: center;
     gap: 8px;
     width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
   }
   
-  .search-divider {
+  .search-bar :deep(.el-divider--vertical) {
     display: none;
   }
   

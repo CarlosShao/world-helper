@@ -287,8 +287,30 @@ body {
 
 @media (max-width: 768px) {
   .header-content {
-    flex-direction: column;
-    padding: 10px 16px;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 8px 12px;
+    height: auto;
+    flex-wrap: wrap;
+  }
+  
+  .el-menu {
+    flex: 0 1 auto;
+  }
+  
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .username {
+    font-size: 12px;
+  }
+  
+  .logout-btn {
+    padding: 4px 10px;
+    font-size: 11px;
   }
   
   .app-container .el-main {
@@ -296,8 +318,10 @@ body {
   }
   
   .el-menu-item {
-    padding: 0 12px;
-    font-size: 14px;
+    padding: 0 10px;
+    font-size: 13px;
+    height: 36px;
+    line-height: 36px;
   }
   
   .app-container .el-card__header {
