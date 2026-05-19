@@ -59,7 +59,7 @@
               <el-icon><ArrowLeft /></el-icon>
               上一个
             </el-button>
-            <el-button @click="goHome" size="small" text>
+            <el-button @click="goHome" size="small" text class="go-home-btn">
               <el-icon><HomeFilled /></el-icon>
               返回首页
             </el-button>
@@ -645,7 +645,15 @@ onBeforeUnmount(async () => {
   margin: 0;
 }
 
+.go-home-btn {
+  display: inline-flex;
+}
+
 @media (max-width: 768px) {
+  .go-home-btn {
+    display: none;
+  }
+  
   .start-content {
     padding: 30px 15px;
   }
