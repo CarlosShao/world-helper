@@ -174,7 +174,7 @@
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
-                  <el-button size="small" type="danger" @click="deleteWord(row)">
+                  <el-button size="small" type="danger" @click="deleteWord(row)" v-if="!row.isChild">
                     <el-icon><Delete /></el-icon>
                     删除
                   </el-button>
