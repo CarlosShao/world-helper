@@ -1263,15 +1263,15 @@ onMounted(() => {
   
   .header-actions .el-button {
     width: 100%;
-    padding: 10px 12px;
-    font-size: 13px;
-    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    border-radius: 6px;
     box-sizing: border-box;
     margin: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 44px;
+    min-height: 36px;
   }
   
   .header-actions .el-button .el-icon {
