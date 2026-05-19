@@ -29,40 +29,44 @@
             </div>
           </div>
           <div class="search-bar">
-            <el-input
-              v-model="searchText"
-              placeholder="搜索中英文..."
-              style="width: 220px;"
-              clearable
-              @keyup.enter="loadWords"
-              @clear="handleSearchClear"
-            >
-              <template #prefix>
+            <div class="search-bar-row1">
+              <el-input
+                v-model="searchText"
+                placeholder="搜索中英文..."
+                style="width: 220px;"
+                clearable
+                @keyup.enter="loadWords"
+                @clear="handleSearchClear"
+              >
+                <template #prefix>
+                  <el-icon><Search /></el-icon>
+                </template>
+              </el-input>
+              <el-button type="primary" @click="loadWords" size="small">
                 <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <el-button type="primary" @click="loadWords" size="small">
-              <el-icon><Search /></el-icon>
-            </el-button>
-            <el-divider direction="vertical" />
-            <el-button @click="toggleAllChinese" size="small">
-              <el-icon v-if="allChineseHidden"><View /></el-icon>
-              <el-icon v-else><Hide /></el-icon>
-              {{ allChineseHidden ? '显示中文' : '隐藏中文' }}
-            </el-button>
-            <el-button @click="toggleAllEnglish" size="small">
-              <el-icon v-if="allEnglishHidden"><View /></el-icon>
-              <el-icon v-else><Hide /></el-icon>
-              {{ allEnglishHidden ? '显示英文' : '隐藏英文' }}
-            </el-button>
-            <el-button type="success" @click="goToPractice" size="small">
-              <el-icon style="margin-right: 4px;"><Edit /></el-icon>
-              随手拼
-            </el-button>
-            <el-button type="primary" @click="startAddNew" size="small" class="add-word-btn">
-              <el-icon><Plus /></el-icon>
-              新增单词
-            </el-button>
+              </el-button>
+              <el-button type="primary" @click="startAddNew" size="small" class="add-word-btn">
+                <el-icon><Plus /></el-icon>
+                新增单词
+              </el-button>
+            </div>
+            <div class="search-bar-row2">
+              <el-divider direction="vertical" />
+              <el-button @click="toggleAllChinese" size="small">
+                <el-icon v-if="allChineseHidden"><View /></el-icon>
+                <el-icon v-else><Hide /></el-icon>
+                {{ allChineseHidden ? '显示中文' : '隐藏中文' }}
+              </el-button>
+              <el-button @click="toggleAllEnglish" size="small">
+                <el-icon v-if="allEnglishHidden"><View /></el-icon>
+                <el-icon v-else><Hide /></el-icon>
+                {{ allEnglishHidden ? '显示英文' : '隐藏英文' }}
+              </el-button>
+              <el-button type="success" @click="goToPractice" size="small">
+                <el-icon style="margin-right: 4px;"><Edit /></el-icon>
+                随手拼
+              </el-button>
+            </div>
           </div>
         </div>
       </template>
@@ -962,6 +966,18 @@ onMounted(() => {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 12px;
+}
+
+.search-bar-row1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-bar-row2 {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -971,7 +987,7 @@ onMounted(() => {
 }
 
 .add-word-btn {
-  margin-left: auto;
+  margin-left: 8px;
 }
 
 .word-text {
@@ -1241,43 +1257,59 @@ onMounted(() => {
     width: 100%;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    gap: 10px;
   }
   
   .header-actions .el-button {
     width: 100%;
-    padding: 10px 12px;
-    font-size: 13px;
+    padding: 12px 14px;
+    font-size: 14px;
     border-radius: 8px;
+    box-sizing: border-box;
   }
   
   .search-bar {
     width: 100%;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 8px;
   }
   
+  .search-bar-row1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .search-bar-row1 .el-input {
+    flex: 1;
+    width: auto;
+  }
+  
+  .search-bar-row1 .add-word-btn {
+    margin-left: auto;
+  }
+  
+  .search-bar-row2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  
   .search-bar .el-input {
-    width: calc(100% - 150px);
     max-width: none;
   }
   
   .search-bar .el-button {
     padding: 5px 10px;
     font-size: 11px;
-    flex-shrink: 0;
   }
   
   .search-bar :deep(.el-divider--vertical) {
     display: none;
-    width: 0;
-    height: 0;
-  }
-  
-  .add-word-btn {
-    margin-left: 0;
   }
   
   .word-list-card :deep(.el-table) {
