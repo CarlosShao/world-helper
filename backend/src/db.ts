@@ -10,6 +10,10 @@ let hfToken: string | null = null;
 const dbFileName = 'word-helper.db';
 let lastUploadTime = 0;
 const minUploadInterval = 60000;
+let lastDbHash = '';
+let uploadTimeout: NodeJS.Timeout | null = null;
+const debounceDelay = 30000; // 防抖延迟 30 秒
+let uploadScheduled = false;
 
 const hubRepoId = process.env.HF_REPO_ID 
   || process.env.HF_SPACE_ID 
@@ -61,6 +65,7 @@ async function downloadFromHub(): Promise<Buffer | null> {
         res.on('end', () => {
           const buffer = Buffer.concat(chunks);
           console.log(`[DB] Downloaded database from Hub: ${buffer.length} bytes`);
+          lastDbHash = getDbHash(buffer);
           resolve(buffer);
         });
         res.on('error', reject);
@@ -89,7 +94,7 @@ async function downloadFromHub(): Promise<Buffer | null> {
   }
 }
 
-export async function uploadToHub(): Promise<boolean> {
+async function doUpload(): Promise<boolean> {
   if (!hfToken) {
     return false;
   }
@@ -102,6 +107,13 @@ export async function uploadToHub(): Promise<boolean> {
 
   const data = db.export();
   const buffer = Buffer.from(data);
+  const currentHash = getDbHash(buffer);
+  
+  if (currentHash === lastDbHash) {
+    console.log('[DB] Skipping upload, database content unchanged');
+    uploadScheduled = false;
+    return false;
+  }
 
   try {
     console.log('[DB] Uploading database to HuggingFace Hub...');
@@ -139,9 +151,11 @@ export async function uploadToHub(): Promise<boolean> {
           responseBody += chunk;
         });
         res.on('end', () => {
+          uploadScheduled = false;
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             console.log('[DB] Successfully uploaded to HuggingFace Hub');
             lastUploadTime = now;
+            lastDbHash = currentHash;
             resolve(true);
           } else {
             console.log(`[DB] Upload failed: HTTP ${res.statusCode}`);
@@ -152,11 +166,13 @@ export async function uploadToHub(): Promise<boolean> {
       });
 
       req.on('error', (err) => {
+        uploadScheduled = false;
         console.log('[DB] Upload error:', err.message);
         resolve(false);
       });
 
       req.setTimeout(30000, () => {
+        uploadScheduled = false;
         req.destroy();
         console.log('[DB] Upload timeout');
         resolve(false);
@@ -166,9 +182,34 @@ export async function uploadToHub(): Promise<boolean> {
       req.end();
     });
   } catch (error) {
+    uploadScheduled = false;
     console.log('[DB] Error uploading to Hub:', error);
     return false;
   }
+}
+
+export function scheduleUpload(): void {
+  if (!isHuggingFace || !hfToken) {
+    return;
+  }
+
+  if (uploadTimeout) {
+    clearTimeout(uploadTimeout);
+  }
+
+  uploadScheduled = true;
+  
+  uploadTimeout = setTimeout(() => {
+    doUpload();
+  }, debounceDelay);
+}
+
+export async function uploadToHub(): Promise<boolean> {
+  if (uploadTimeout) {
+    clearTimeout(uploadTimeout);
+    uploadScheduled = false;
+  }
+  return await doUpload();
 }
 
 export async function initDb(): Promise<SqlJsDatabase> {
@@ -198,6 +239,9 @@ export async function initDb(): Promise<SqlJsDatabase> {
   if (!dbLoaded && fs.existsSync(dbPath)) {
     const buffer = fs.readFileSync(dbPath);
     db = new SQL.Database(buffer);
+    if (!lastDbHash) {
+      lastDbHash = getDbHash(buffer);
+    }
     console.log('[DB] Loaded local database');
   } else if (!dbLoaded) {
     db = new SQL.Database();
@@ -353,6 +397,8 @@ export function saveDb(): void {
   const buffer = Buffer.from(data);
   
   fs.writeFileSync(dbPath, buffer);
+  
+  scheduleUpload();
 }
 
 export function getDb(): SqlJsDatabase {
