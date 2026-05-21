@@ -253,9 +253,14 @@ const clearProgress = async () => {
       }
     )
     await wordApi.saveSetting('practiceIndex', '0')
+    await wordApi.saveSetting('practiceTotal', '0')
+    await wordApi.saveSetting('practiceCorrectCount', '0')
     savedIndex.value = 0
+    savedTotal.value = 0
+    savedCorrectCount.value = 0
     currentIndex.value = 0
     correctCount.value = 0
+    practiceTotal.value = totalWords.value
     showResult.value = false
     showCurrentWord()
     ElMessage.success('进度已清除')
