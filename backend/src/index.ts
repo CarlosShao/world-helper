@@ -3,7 +3,7 @@ import multer from 'multer';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { initDb, run, all, get, batchRun, saveDb } from './db';
+import { initDb, run, all, get, batchRun, saveDb, uploadToHub } from './db';
 import { parsePdf } from './pdfParser';
 
 const app = express();
@@ -898,6 +898,31 @@ async function startServer() {
     }
     
     res.json({ words: roots });
+  });
+
+  // 手动保存到 HuggingFace Hub
+  app.post('/api/db/save-to-hub', async (req, res) => {
+    try {
+      const result = await uploadToHub();
+      if (result) {
+        res.json({ success: true, message: '数据库已成功保存到 HuggingFace Hub' });
+      } else {
+        res.json({ success: false, message: '保存失败，请检查日志' });
+      }
+    } catch (error) {
+      console.error('Save to Hub error:', error);
+      res.status(500).json({ success: false, message: '保存失败' });
+    }
+  });
+
+  // 获取数据库状态
+  app.get('/api/db/status', (req, res) => {
+    const totalWords = get('SELECT COUNT(*) as count FROM words')?.count || 0;
+    res.json({
+      success: true,
+      totalWords,
+      isHuggingFace: process.env.HF_TOKEN ? true : false
+    });
   });
 
   // 执行数据库迁移
