@@ -80,36 +80,46 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
   try {
     console.log('[DB] Uploading database to HuggingFace Hub...');
     
-    const boundary = '----FormBoundary7MA4YWxkTrZu0gW';
-    const body = Buffer.concat([
-      Buffer.from(`--${boundary}\r\n`),
-      Buffer.from(`Content-Disposition: form-data; name="files"; filename="${dbFileName}"\r\n`),
-      Buffer.from('Content-Type: application/octet-stream\r\n\r\n'),
-      buffer,
-      Buffer.from(`\r\n--${boundary}--\r\n`)
-    ]);
+    // 使用正确的 API 路径 - 这是修复的关键
+    const url = new URL(`https://huggingface.co/api/spaces/${hubRepoId}/upload/main`);
+    
+    // 构建正确的 JSON payload
+    const payload = JSON.stringify({
+      message: 'Update database',
+      files: {
+        [`data/${dbFileName}`]: {
+          content: buffer.toString('base64')
+        }
+      }
+    });
 
     return await new Promise((resolve) => {
-      const url = new URL(`https://huggingface.co/api/spaces/${hubRepoId}/upload/main/data`);
       const options = {
         hostname: url.hostname,
         path: url.pathname,
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${hfToken}`,
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
-          'Content-Length': body.length,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
         }
       };
 
       const req = https.request(options, (res) => {
-        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-          console.log('[DB] Successfully uploaded to HuggingFace Hub');
-          resolve(true);
-        } else {
-          console.log(`[DB] Upload failed: HTTP ${res.statusCode}`);
-          resolve(false);
-        }
+        let responseBody = '';
+        res.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+        res.on('end', () => {
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            console.log('[DB] Successfully uploaded to HuggingFace Hub');
+            resolve(true);
+          } else {
+            console.log(`[DB] Upload failed: HTTP ${res.statusCode}`);
+            console.log('[DB] Response:', responseBody);
+            resolve(false);
+          }
+        });
       });
 
       req.on('error', (err) => {
@@ -123,7 +133,7 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
         resolve(false);
       });
 
-      req.write(body);
+      req.write(payload);
       req.end();
     });
   } catch (error) {
@@ -330,18 +340,18 @@ export function getDb(): SqlJsDatabase {
   return db;
 }
 
-export function run(sql: string, params: any[] = []) {
+export function run(sql: string, params: any[] = []): void {
   db.run(sql, params);
 }
 
-export function batchRun(operations: Array<{ sql: string; params?: any[] }>) {
+export function batchRun(operations: Array<{ sql: string; params?: any[] }>): void {
   operations.forEach(op => {
     db.run(op.sql, op.params || []);
   });
   saveDb();
 }
 
-export function all(sql: string, params: any[] = []) {
+export function all(sql: string, params: any[] = []): any[] {
   const stmt = db.prepare(sql);
   stmt.bind(params);
   const results: any[] = [];
@@ -353,7 +363,7 @@ export function all(sql: string, params: any[] = []) {
   return results;
 }
 
-export function get(sql: string, params: any[] = []) {
+export function get(sql: string, params: any[] = []): any | null {
   const stmt = db.prepare(sql);
   stmt.bind(params);
   let result = null;
