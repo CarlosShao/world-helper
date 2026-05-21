@@ -14,6 +14,7 @@ let lastDbHash = '';
 let uploadTimeout: NodeJS.Timeout | null = null;
 const debounceDelay = 30000; // 防抖延迟 30 秒
 let uploadScheduled = false;
+let isInitialized = false; // 标记是否已完成初始化
 
 const hubRepoId = process.env.HF_REPO_ID 
   || process.env.HF_SPACE_ID 
@@ -190,6 +191,11 @@ async function doUpload(): Promise<boolean> {
 
 export function scheduleUpload(): void {
   if (!isHuggingFace || !hfToken) {
+    return;
+  }
+
+  if (!isInitialized) {
+    console.log('[DB] Skipping upload during initialization');
     return;
   }
 
@@ -388,6 +394,9 @@ export async function initDb(): Promise<SqlJsDatabase> {
   }
 
   saveDb();
+  
+  isInitialized = true;
+  console.log('[DB] Initialization complete, uploads now enabled');
   
   return db;
 }
