@@ -8,10 +8,18 @@ let db: SqlJsDatabase;
 let isHuggingFace: boolean = false;
 let hfToken: string | null = null;
 const dbFileName = 'word-helper.db';
+let lastUploadTime = 0;
+const minUploadInterval = 60000; // 最小上传间隔 60 秒
+let lastDbHash = '';
 
 const hubRepoId = process.env.HF_REPO_ID 
   || process.env.HF_SPACE_ID 
   || 'CarlosShao/word-helper';
+
+function getDbHash(buffer: Buffer): string {
+  const crypto = require('crypto');
+  return crypto.createHash('md5').update(buffer).digest('hex');
+}
 
 async function downloadFromHub(): Promise<Buffer | null> {
   if (!hfToken) {
@@ -47,6 +55,7 @@ async function downloadFromHub(): Promise<Buffer | null> {
         res.on('end', () => {
           const buffer = Buffer.concat(chunks);
           console.log(`[DB] Downloaded database from Hub: ${buffer.length} bytes`);
+          lastDbHash = getDbHash(buffer);
           resolve(buffer);
         });
         res.on('error', reject);
@@ -76,13 +85,25 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
     return false;
   }
 
+  // 检查时间间隔
+  const now = Date.now();
+  if (now - lastUploadTime < minUploadInterval) {
+    console.log('[DB] Skipping upload, too soon since last upload');
+    return false;
+  }
+
+  // 检查内容是否变化
+  const currentHash = getDbHash(buffer);
+  if (currentHash === lastDbHash) {
+    console.log('[DB] Skipping upload, database content unchanged');
+    return false;
+  }
+
   try {
     console.log('[DB] Uploading database to HuggingFace Hub...');
     
-    // 使用正确的 commit 端点
     const url = new URL(`https://huggingface.co/api/spaces/${hubRepoId}/commit/main`);
     
-    // 使用 commit API 的正确格式
     const payload = {
       summary: 'Update database',
       description: 'Auto-saved database from word-helper app',
@@ -118,6 +139,8 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
         res.on('end', () => {
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             console.log('[DB] Successfully uploaded to HuggingFace Hub');
+            lastUploadTime = now;
+            lastDbHash = currentHash;
             resolve(true);
           } else {
             console.log(`[DB] Upload failed: HTTP ${res.statusCode}`);
@@ -177,6 +200,7 @@ export async function initDb(): Promise<SqlJsDatabase> {
   if (!dbLoaded && fs.existsSync(dbPath)) {
     const buffer = fs.readFileSync(dbPath);
     db = new SQL.Database(buffer);
+    lastDbHash = getDbHash(buffer);
     console.log('[DB] Loaded local database');
   } else if (!dbLoaded) {
     db = new SQL.Database();
