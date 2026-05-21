@@ -144,6 +144,8 @@ const route = useRoute()
 const words = ref<Word[]>([])
 const currentIndex = ref(0)
 const savedIndex = ref(0)
+const savedTotal = ref(0)
+const savedCorrectCount = ref(0)
 const currentWord = ref<Word | null>(null)
 const userAnswer = ref('')
 const showResult = ref(false)
@@ -196,10 +198,22 @@ const getProgressText = () => {
 
 const loadProgress = async () => {
   try {
-    const res = await wordApi.getSetting('practiceIndex')
-    if (res.data.value !== null) {
-      const index = parseInt(res.data.value)
+    const indexRes = await wordApi.getSetting('practiceIndex')
+    if (indexRes.data.value !== null) {
+      const index = parseInt(indexRes.data.value)
       savedIndex.value = index
+    }
+    
+    const totalRes = await wordApi.getSetting('practiceTotal')
+    if (totalRes.data.value !== null) {
+      const total = parseInt(totalRes.data.value)
+      savedTotal.value = total
+    }
+    
+    const correctRes = await wordApi.getSetting('practiceCorrectCount')
+    if (correctRes.data.value !== null) {
+      const count = parseInt(correctRes.data.value)
+      savedCorrectCount.value = count
     }
   } catch (error) {
     console.error('Load progress error:', error)
@@ -209,6 +223,8 @@ const loadProgress = async () => {
 const saveProgress = async () => {
   try {
     await wordApi.saveSetting('practiceIndex', currentIndex.value.toString())
+    await wordApi.saveSetting('practiceTotal', practiceTotal.value.toString())
+    await wordApi.saveSetting('practiceCorrectCount', correctCount.value.toString())
     ElMessage.success('进度已保存')
   } catch (error) {
     ElMessage.error('保存进度失败')
@@ -218,6 +234,8 @@ const saveProgress = async () => {
 const autoSaveProgress = async () => {
   try {
     await wordApi.saveSetting('practiceIndex', currentIndex.value.toString())
+    await wordApi.saveSetting('practiceTotal', practiceTotal.value.toString())
+    await wordApi.saveSetting('practiceCorrectCount', correctCount.value.toString())
   } catch (error) {
     console.error('Auto save progress error:', error)
   }
@@ -281,10 +299,11 @@ const startPractice = async () => {
     } else {
       currentIndex.value = savedIndex.value
     }
-    practiceTotal.value = totalWords.value
+    // 使用保存的总数，如果没有保存则使用总单词数
+    practiceTotal.value = savedTotal.value > 0 ? savedTotal.value : totalWords.value
+    // 使用保存的正确计数，如果没有保存则从0开始
+    correctCount.value = savedCorrectCount.value
   }
-  
-  correctCount.value = 0
   loading.value = false
   showCurrentWord()
 }
