@@ -83,12 +83,10 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
     // 使用正确的 API 路径
     const url = new URL(`https://huggingface.co/api/spaces/${hubRepoId}/commit/main`);
     
-    // 构建正确的 commit payload - 需要包含 summary 字段
+    // 尝试不同的格式 - 版本 1
     const payload = JSON.stringify({
-      header: {
-        summary: 'Update database',
-        description: 'Auto-saved database from word-helper app'
-      },
+      summary: 'Update database',
+      description: 'Auto-saved database from word-helper app',
       additions: [
         {
           path: `data/${dbFileName}`,
@@ -96,6 +94,12 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
         }
       ]
     });
+
+    console.log('[DB] Payload:', JSON.stringify({
+      summary: 'Update database',
+      description: 'Auto-saved database from word-helper app',
+      additions: [{ path: `data/${dbFileName}`, content: '...base64...' }]
+    }));
 
     return await new Promise((resolve) => {
       const options = {
