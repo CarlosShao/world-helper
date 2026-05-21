@@ -55,7 +55,7 @@
               <el-icon><Delete /></el-icon>
               清除进度
             </el-button>
-            <el-button @click="goBack" size="small" text :disabled="currentIndex === 0">
+            <el-button @click="goBack" size="small" text :disabled="isGoBackDisabled">
               <el-icon><ArrowLeft /></el-icon>
               上一个
             </el-button>
@@ -146,6 +146,7 @@ const currentIndex = ref(0)
 const savedIndex = ref(0)
 const savedTotal = ref(0)
 const savedCorrectCount = ref(0)
+const savedSkipCount = ref(0)
 const currentWord = ref<Word | null>(null)
 const userAnswer = ref('')
 const showResult = ref(false)
@@ -163,9 +164,18 @@ const fromPage = ref<number | null>(null)
 const totalWords = ref(0)
 const correctCount = ref(0)
 const practiceTotal = ref(0)
+const skipCount = ref(0)
 
 // 判断是否有fromIndex参数
 const hasFromIndex = computed(() => route.query.fromIndex !== undefined)
+
+// 判断上一个按钮是否禁用：从表格进入时，只能回到起始词
+const isGoBackDisabled = computed(() => {
+  if (fromIndex.value !== null) {
+    return currentIndex.value <= fromIndex.value
+  }
+  return currentIndex.value === 0
+})
 
 const loadWords = async () => {
   try {
@@ -196,24 +206,35 @@ const getProgressText = () => {
   return `${correctCount.value} / ${practiceTotal.value}`
 }
 
-const loadProgress = async () => {
+const loadProgress = async (startIndex?: number) => {
   try {
-    const indexRes = await wordApi.getSetting('practiceIndex')
+    let prefix = 'practice'
+    if (startIndex !== undefined) {
+      prefix = `practice_${startIndex}`
+    }
+    
+    const indexRes = await wordApi.getSetting(`${prefix}Index`)
     if (indexRes.data.value !== null) {
       const index = parseInt(indexRes.data.value)
       savedIndex.value = index
     }
     
-    const totalRes = await wordApi.getSetting('practiceTotal')
+    const totalRes = await wordApi.getSetting(`${prefix}Total`)
     if (totalRes.data.value !== null) {
       const total = parseInt(totalRes.data.value)
       savedTotal.value = total
     }
     
-    const correctRes = await wordApi.getSetting('practiceCorrectCount')
+    const correctRes = await wordApi.getSetting(`${prefix}CorrectCount`)
     if (correctRes.data.value !== null) {
       const count = parseInt(correctRes.data.value)
       savedCorrectCount.value = count
+    }
+    
+    const skipRes = await wordApi.getSetting(`${prefix}SkipCount`)
+    if (skipRes.data.value !== null) {
+      const count = parseInt(skipRes.data.value)
+      savedSkipCount.value = count
     }
   } catch (error) {
     console.error('Load progress error:', error)
@@ -222,14 +243,23 @@ const loadProgress = async () => {
 
 const saveProgress = async () => {
   try {
-    // 只有从首页进入的随手拼才保存进度到持久化存储
-    if (fromIndex.value === null) {
-      await wordApi.saveSetting('practiceIndex', currentIndex.value.toString())
-      await wordApi.saveSetting('practiceTotal', practiceTotal.value.toString())
-      await wordApi.saveSetting('practiceCorrectCount', correctCount.value.toString())
-      ElMessage.success('进度已保存')
+    let prefix = 'practice'
+    let isTablePractice = false
+    
+    if (fromIndex.value !== null) {
+      prefix = `practice_${fromIndex.value}`
+      isTablePractice = true
+    }
+    
+    await wordApi.saveSetting(`${prefix}Index`, currentIndex.value.toString())
+    await wordApi.saveSetting(`${prefix}Total`, practiceTotal.value.toString())
+    await wordApi.saveSetting(`${prefix}CorrectCount`, correctCount.value.toString())
+    await wordApi.saveSetting(`${prefix}SkipCount`, skipCount.value.toString())
+    
+    if (isTablePractice) {
+      ElMessage.success(`已保存从第${fromIndex.value + 1}个词开始的练习进度`)
     } else {
-      ElMessage.info('表格随手拼为临时会话，进度不保存')
+      ElMessage.success('进度已保存')
     }
   } catch (error) {
     ElMessage.error('保存进度失败')
@@ -238,12 +268,16 @@ const saveProgress = async () => {
 
 const autoSaveProgress = async () => {
   try {
-    // 只有从首页进入的随手拼才自动保存进度
-    if (fromIndex.value === null) {
-      await wordApi.saveSetting('practiceIndex', currentIndex.value.toString())
-      await wordApi.saveSetting('practiceTotal', practiceTotal.value.toString())
-      await wordApi.saveSetting('practiceCorrectCount', correctCount.value.toString())
+    let prefix = 'practice'
+    
+    if (fromIndex.value !== null) {
+      prefix = `practice_${fromIndex.value}`
     }
+    
+    await wordApi.saveSetting(`${prefix}Index`, currentIndex.value.toString())
+    await wordApi.saveSetting(`${prefix}Total`, practiceTotal.value.toString())
+    await wordApi.saveSetting(`${prefix}CorrectCount`, correctCount.value.toString())
+    await wordApi.saveSetting(`${prefix}SkipCount`, skipCount.value.toString())
   } catch (error) {
     console.error('Auto save progress error:', error)
   }
@@ -264,23 +298,33 @@ const clearProgress = async () => {
       }
     )
     
-    // 如果是从表格进入的随手拼，清除进度后回到起始词
+    let prefix = 'practice'
+    if (fromIndex.value !== null) {
+      prefix = `practice_${fromIndex.value}`
+    }
+    
+    // 清除进度后回到起始词
     if (fromIndex.value !== null) {
       currentIndex.value = fromIndex.value
       practiceTotal.value = totalWords.value - fromIndex.value
     } else {
-      // 总的随手拼，清除进度回到第一个单词
-      await wordApi.saveSetting('practiceIndex', '0')
-      await wordApi.saveSetting('practiceTotal', '0')
-      await wordApi.saveSetting('practiceCorrectCount', '0')
-      savedIndex.value = 0
-      savedTotal.value = 0
-      savedCorrectCount.value = 0
       currentIndex.value = 0
       practiceTotal.value = totalWords.value
     }
     
+    // 清除存储中的进度
+    await wordApi.saveSetting(`${prefix}Index`, '0')
+    await wordApi.saveSetting(`${prefix}Total`, '0')
+    await wordApi.saveSetting(`${prefix}CorrectCount`, '0')
+    await wordApi.saveSetting(`${prefix}SkipCount`, '0')
+    
+    savedIndex.value = 0
+    savedTotal.value = 0
+    savedCorrectCount.value = 0
+    savedSkipCount.value = 0
     correctCount.value = 0
+    skipCount.value = 0
+    
     showResult.value = false
     showCurrentWord()
     ElMessage.success('进度已清除')
@@ -312,11 +356,27 @@ const startPractice = async () => {
   
   if (queryFromIndex !== undefined) {
     fromIndex.value = parseInt(queryFromIndex as string)
-    currentIndex.value = fromIndex.value
+    
+    // 加载该起始词的独立进度
+    await loadProgress(fromIndex.value)
+    
+    // 如果有保存的进度，且不在起始位置，弹出提示
+    if (savedIndex.value > fromIndex.value) {
+      const completed = savedCorrectCount.value
+      const skipped = savedSkipCount.value
+      ElMessage.info(`上次从第${fromIndex.value + 1}个词开始练习，已完成${completed}个，跳过${skipped}个，现在从第${savedIndex.value + 1}个词继续`)
+      currentIndex.value = savedIndex.value
+    } else {
+      currentIndex.value = fromIndex.value
+    }
+    
     if (queryFromPage !== undefined) {
       fromPage.value = parseInt(queryFromPage as string)
     }
-    practiceTotal.value = totalWords.value - fromIndex.value
+    
+    practiceTotal.value = savedTotal.value > 0 ? savedTotal.value : (totalWords.value - fromIndex.value)
+    correctCount.value = savedCorrectCount.value
+    skipCount.value = savedSkipCount.value
   } else {
     await loadProgress()
     if (savedIndex.value >= words.value.length) {
@@ -324,10 +384,9 @@ const startPractice = async () => {
     } else {
       currentIndex.value = savedIndex.value
     }
-    // 使用保存的总数，如果没有保存则使用总单词数
     practiceTotal.value = savedTotal.value > 0 ? savedTotal.value : totalWords.value
-    // 使用保存的正确计数，如果没有保存则从0开始
     correctCount.value = savedCorrectCount.value
+    skipCount.value = savedSkipCount.value
   }
   loading.value = false
   showCurrentWord()
@@ -370,7 +429,7 @@ const showAnswer = () => {
 const skipWord = async () => {
   if (!currentWord.value) return
   currentIndex.value++
-  // 跳过时不增加正确计数，但减少总数
+  skipCount.value++
   if (practiceTotal.value > 0) {
     practiceTotal.value--
   }
@@ -421,11 +480,8 @@ const nextWord = async () => {
 }
 
 const goBack = () => {
-  // 如果是从表格进入的随手拼（有fromIndex），不允许返回上一个
-  if (fromIndex.value !== null) {
-    return
-  }
-  if (currentIndex.value > 0) {
+  const minIndex = fromIndex.value !== null ? fromIndex.value : 0
+  if (currentIndex.value > minIndex) {
     currentIndex.value--
     practiceTotal.value++
     showCurrentWord()
