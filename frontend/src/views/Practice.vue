@@ -191,11 +191,7 @@ const loadWords = async () => {
 }
 
 const getProgressText = () => {
-  if (fromIndex.value !== null) {
-    const total = totalWords.value - fromIndex.value
-    return `${correctCount.value} / ${total}`
-  }
-  return `${correctCount.value} / ${totalWords.value}`
+  return `${correctCount.value} / ${practiceTotal.value}`
 }
 
 const loadProgress = async () => {
