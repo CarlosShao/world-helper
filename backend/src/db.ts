@@ -34,12 +34,16 @@ async function downloadFromHub(): Promise<Buffer | null> {
     const url = `https://huggingface.co/api/spaces/${hubRepoId}/resolve/main/data/${dbFileName}`;
     
     return await new Promise((resolve, reject) => {
+      let responseReceived = false;
+      
       const req = https.request(url, {
         headers: {
           'Authorization': `Bearer ${hfToken}`,
           'Accept': 'application/octet-stream',
         }
       }, (res) => {
+        responseReceived = true;
+        
         if (res.statusCode === 404) {
           console.log('[DB] No existing database found on Hub, will create new one');
           resolve(null);
@@ -63,13 +67,17 @@ async function downloadFromHub(): Promise<Buffer | null> {
       });
       
       req.on('error', (err) => {
-        console.log('[DB] Network error during download:', err.message);
+        if (!responseReceived) {
+          console.log('[DB] Network error during download:', err.message);
+        }
         resolve(null);
       });
       
       req.setTimeout(10000, () => {
         req.destroy();
-        console.log('[DB] Download timeout');
+        if (!responseReceived) {
+          console.log('[DB] Download timeout');
+        }
         resolve(null);
       });
       
