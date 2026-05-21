@@ -330,6 +330,10 @@ const showAnswer = () => {
 const skipWord = async () => {
   if (!currentWord.value) return
   currentIndex.value++
+  // 跳过时不增加正确计数，但减少总数
+  if (practiceTotal.value > 0) {
+    practiceTotal.value--
+  }
   await autoSaveProgress()
   if (currentIndex.value >= words.value.length) {
     currentIndex.value = 0
@@ -379,6 +383,8 @@ const nextWord = async () => {
 const goBack = () => {
   if (currentIndex.value > 0) {
     currentIndex.value--
+    // 返回上一个时，总数增加
+    practiceTotal.value++
     showCurrentWord()
   }
 }
