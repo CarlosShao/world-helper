@@ -3,7 +3,7 @@ import multer from 'multer';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { initDb, run, all, get, batchRun, saveDb, uploadToHub } from './db';
+import { initDb, run, all, get, batchRun, saveDb } from './db';
 import { parsePdf } from './pdfParser';
 
 const app = express();
@@ -900,17 +900,13 @@ async function startServer() {
     res.json({ words: roots });
   });
 
-  // 手动保存到 HuggingFace Hub
-  app.post('/api/db/save-to-hub', async (req, res) => {
+  // 手动保存数据库（现在使用 Persistent Storage，数据会自动持久化）
+  app.post('/api/db/save', async (req, res) => {
     try {
-      const result = await uploadToHub();
-      if (result) {
-        res.json({ success: true, message: '数据库已成功保存到 HuggingFace Hub' });
-      } else {
-        res.json({ success: false, message: '保存失败，请检查日志' });
-      }
+      saveDb();
+      res.json({ success: true, message: '数据库已保存到 Persistent Storage' });
     } catch (error) {
-      console.error('Save to Hub error:', error);
+      console.error('Save error:', error);
       res.status(500).json({ success: false, message: '保存失败' });
     }
   });
