@@ -387,6 +387,12 @@ const startPractice = async () => {
     practiceTotal.value = savedTotal.value > 0 ? savedTotal.value : totalWords.value
     correctCount.value = savedCorrectCount.value
     skipCount.value = savedSkipCount.value
+    
+    if (savedIndex.value > 0 || savedCorrectCount.value > 0 || savedSkipCount.value > 0) {
+      const completed = savedCorrectCount.value
+      const skipped = savedSkipCount.value
+      ElMessage.info(`上次练习已完成${completed}个，跳过${skipped}个，现在从第${savedIndex.value + 1}个词继续`)
+    }
   }
   loading.value = false
   showCurrentWord()
