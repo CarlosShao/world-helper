@@ -9,7 +9,6 @@ let isHuggingFace: boolean = false;
 let hfToken: string | null = null;
 const dbFileName = 'word-helper.db';
 
-// 更灵活的仓库 ID 检测
 const hubRepoId = process.env.HF_REPO_ID 
   || process.env.HF_SPACE_ID 
   || 'CarlosShao/word-helper';
@@ -80,31 +79,34 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
   try {
     console.log('[DB] Uploading database to HuggingFace Hub...');
     
-    // 使用正确的 API 路径
-    const url = new URL(`https://huggingface.co/api/spaces/${hubRepoId}/upload/main/data`);
+    // 使用正确的 commit 端点
+    const url = new URL(`https://huggingface.co/api/spaces/${hubRepoId}/commit/main`);
     
-    // 使用 multipart/form-data 格式上传
-    const boundary = '----WordHelperBoundary' + Date.now();
-    
-    const body = Buffer.concat([
-      Buffer.from(`--${boundary}\r\n`),
-      Buffer.from(`Content-Disposition: form-data; name="files"; filename="${dbFileName}"\r\n`),
-      Buffer.from('Content-Type: application/octet-stream\r\n\r\n'),
-      buffer,
-      Buffer.from(`\r\n--${boundary}--\r\n`)
-    ]);
+    // 使用 commit API 的正确格式
+    const payload = {
+      summary: 'Update database',
+      description: 'Auto-saved database from word-helper app',
+      additions: [
+        {
+          path: `data/${dbFileName}`,
+          content: buffer.toString('base64')
+        }
+      ]
+    };
 
-    console.log('[DB] Using multipart/form-data format');
+    console.log('[DB] Using commit endpoint with:', Object.keys(payload));
 
     return await new Promise((resolve) => {
+      const jsonPayload = JSON.stringify(payload);
+      
       const options = {
         hostname: url.hostname,
         path: url.pathname,
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${hfToken}`,
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
-          'Content-Length': body.length,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(jsonPayload),
         }
       };
 
@@ -136,7 +138,7 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
         resolve(false);
       });
 
-      req.write(body);
+      req.write(jsonPayload);
       req.end();
     });
   } catch (error) {
@@ -156,8 +158,6 @@ export async function initDb(): Promise<SqlJsDatabase> {
   }
   
   hfToken = process.env.HF_TOKEN || null;
-  
-  // 更可靠的检测：只要有 HF_TOKEN 就认为是 HuggingFace 环境
   isHuggingFace = !!hfToken;
   
   console.log(`[DB] Environment: ${isHuggingFace ? 'HuggingFace' : 'Local'}`);
