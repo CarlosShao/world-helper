@@ -222,10 +222,15 @@ const loadProgress = async () => {
 
 const saveProgress = async () => {
   try {
-    await wordApi.saveSetting('practiceIndex', currentIndex.value.toString())
-    await wordApi.saveSetting('practiceTotal', practiceTotal.value.toString())
-    await wordApi.saveSetting('practiceCorrectCount', correctCount.value.toString())
-    ElMessage.success('进度已保存')
+    // 只有从首页进入的随手拼才保存进度到持久化存储
+    if (fromIndex.value === null) {
+      await wordApi.saveSetting('practiceIndex', currentIndex.value.toString())
+      await wordApi.saveSetting('practiceTotal', practiceTotal.value.toString())
+      await wordApi.saveSetting('practiceCorrectCount', correctCount.value.toString())
+      ElMessage.success('进度已保存')
+    } else {
+      ElMessage.info('表格随手拼为临时会话，进度不保存')
+    }
   } catch (error) {
     ElMessage.error('保存进度失败')
   }
@@ -233,9 +238,12 @@ const saveProgress = async () => {
 
 const autoSaveProgress = async () => {
   try {
-    await wordApi.saveSetting('practiceIndex', currentIndex.value.toString())
-    await wordApi.saveSetting('practiceTotal', practiceTotal.value.toString())
-    await wordApi.saveSetting('practiceCorrectCount', correctCount.value.toString())
+    // 只有从首页进入的随手拼才自动保存进度
+    if (fromIndex.value === null) {
+      await wordApi.saveSetting('practiceIndex', currentIndex.value.toString())
+      await wordApi.saveSetting('practiceTotal', practiceTotal.value.toString())
+      await wordApi.saveSetting('practiceCorrectCount', correctCount.value.toString())
+    }
   } catch (error) {
     console.error('Auto save progress error:', error)
   }
@@ -243,8 +251,11 @@ const autoSaveProgress = async () => {
 
 const clearProgress = async () => {
   try {
+    const message = fromIndex.value !== null 
+      ? '确定要清除练习进度吗？将回到当前练习的起始单词。'
+      : '确定要清除练习进度吗？下次将从第一个单词开始练习。'
     await ElMessageBox.confirm(
-      '确定要清除练习进度吗？下次将从第一个单词开始练习。',
+      message,
       '清除进度',
       {
         confirmButtonText: '确定',
@@ -252,15 +263,24 @@ const clearProgress = async () => {
         type: 'warning',
       }
     )
-    await wordApi.saveSetting('practiceIndex', '0')
-    await wordApi.saveSetting('practiceTotal', '0')
-    await wordApi.saveSetting('practiceCorrectCount', '0')
-    savedIndex.value = 0
-    savedTotal.value = 0
-    savedCorrectCount.value = 0
-    currentIndex.value = 0
+    
+    // 如果是从表格进入的随手拼，清除进度后回到起始词
+    if (fromIndex.value !== null) {
+      currentIndex.value = fromIndex.value
+      practiceTotal.value = totalWords.value - fromIndex.value
+    } else {
+      // 总的随手拼，清除进度回到第一个单词
+      await wordApi.saveSetting('practiceIndex', '0')
+      await wordApi.saveSetting('practiceTotal', '0')
+      await wordApi.saveSetting('practiceCorrectCount', '0')
+      savedIndex.value = 0
+      savedTotal.value = 0
+      savedCorrectCount.value = 0
+      currentIndex.value = 0
+      practiceTotal.value = totalWords.value
+    }
+    
     correctCount.value = 0
-    practiceTotal.value = totalWords.value
     showResult.value = false
     showCurrentWord()
     ElMessage.success('进度已清除')
@@ -401,9 +421,12 @@ const nextWord = async () => {
 }
 
 const goBack = () => {
+  // 如果是从表格进入的随手拼（有fromIndex），不允许返回上一个
+  if (fromIndex.value !== null) {
+    return
+  }
   if (currentIndex.value > 0) {
     currentIndex.value--
-    // 返回上一个时，总数增加
     practiceTotal.value++
     showCurrentWord()
   }
