@@ -80,12 +80,15 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
   try {
     console.log('[DB] Uploading database to HuggingFace Hub...');
     
-    // 使用正确的 API 路径 - 这是修复的关键
+    // 使用正确的 API 路径
     const url = new URL(`https://huggingface.co/api/spaces/${hubRepoId}/commit/main`);
     
-    // 构建正确的 commit payload
+    // 构建正确的 commit payload - 需要包含 summary 字段
     const payload = JSON.stringify({
-      message: 'Update database',
+      header: {
+        summary: 'Update database',
+        description: 'Auto-saved database from word-helper app'
+      },
       additions: [
         {
           path: `data/${dbFileName}`,
