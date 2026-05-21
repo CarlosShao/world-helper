@@ -1,24 +1,166 @@
 import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import path from 'path';
 import fs from 'fs';
+import https from 'https';
+import http from 'http';
 
 let db: SqlJsDatabase;
+let isHuggingFace: boolean = false;
+let hfToken: string | null = null;
+const dbFileName = 'word-helper.db';
+const hubRepoId = process.env.HF_SPACE_ID || 'CarlosShao/word-helper';
+
+async function downloadFromHub(): Promise<Buffer | null> {
+  if (!hfToken) {
+    console.log('[DB] HuggingFace token not found, skipping cloud download');
+    return null;
+  }
+
+  try {
+    console.log('[DB] Downloading database from HuggingFace Hub...');
+    const url = `https://huggingface.co/api/spaces/${hubRepoId}/resolve/main/data/${dbFileName}`;
+    
+    return await new Promise((resolve, reject) => {
+      const req = https.request(url, {
+        headers: {
+          'Authorization': `Bearer ${hfToken}`,
+          'Accept': 'application/octet-stream',
+        }
+      }, (res) => {
+        if (res.statusCode === 404) {
+          console.log('[DB] No existing database found on Hub, will create new one');
+          resolve(null);
+          return;
+        }
+        
+        if (res.statusCode !== 200) {
+          console.log(`[DB] Failed to download: HTTP ${res.statusCode}`);
+          resolve(null);
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          console.log(`[DB] Downloaded database from Hub: ${buffer.length} bytes`);
+          resolve(buffer);
+        });
+        res.on('error', reject);
+      });
+      
+      req.on('error', (err) => {
+        console.log('[DB] Network error during download:', err.message);
+        resolve(null);
+      });
+      
+      req.setTimeout(10000, () => {
+        req.destroy();
+        console.log('[DB] Download timeout');
+        resolve(null);
+      });
+      
+      req.end();
+    });
+  } catch (error) {
+    console.log('[DB] Error downloading from Hub:', error);
+    return null;
+  }
+}
+
+async function uploadToHub(buffer: Buffer): Promise<boolean> {
+  if (!hfToken) {
+    return false;
+  }
+
+  try {
+    console.log('[DB] Uploading database to HuggingFace Hub...');
+    
+    const boundary = '----FormBoundary7MA4YWxkTrZu0gW';
+    const body = Buffer.concat([
+      Buffer.from(`--${boundary}\r\n`),
+      Buffer.from(`Content-Disposition: form-data; name="files"; filename="${dbFileName}"\r\n`),
+      Buffer.from('Content-Type: application/octet-stream\r\n\r\n'),
+      buffer,
+      Buffer.from(`\r\n--${boundary}--\r\n`)
+    ]);
+
+    return await new Promise((resolve) => {
+      const url = new URL(`https://huggingface.co/api/spaces/${hubRepoId}/upload/main/data`);
+      const options = {
+        hostname: url.hostname,
+        path: url.pathname,
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${hfToken}`,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': body.length,
+        }
+      };
+
+      const req = https.request(options, (res) => {
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+          console.log('[DB] Successfully uploaded to HuggingFace Hub');
+          resolve(true);
+        } else {
+          console.log(`[DB] Upload failed: HTTP ${res.statusCode}`);
+          resolve(false);
+        }
+      });
+
+      req.on('error', (err) => {
+        console.log('[DB] Upload error:', err.message);
+        resolve(false);
+      });
+
+      req.setTimeout(30000, () => {
+        req.destroy();
+        console.log('[DB] Upload timeout');
+        resolve(false);
+      });
+
+      req.write(body);
+      req.end();
+    });
+  } catch (error) {
+    console.log('[DB] Error uploading to Hub:', error);
+    return false;
+  }
+}
 
 export async function initDb(): Promise<SqlJsDatabase> {
   const SQL = await initSqlJs();
   
-  const dbPath = path.join(__dirname, '../data/word-helper.db');
+  const dbPath = path.join(__dirname, '../data', dbFileName);
   const dataDir = path.join(__dirname, '../data');
   
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
   
-  if (fs.existsSync(dbPath)) {
+  hfToken = process.env.HF_TOKEN || null;
+  isHuggingFace = !!process.env.HF_SPACE_ID;
+  
+  console.log(`[DB] Environment: ${isHuggingFace ? 'HuggingFace' : 'Local'}`);
+  console.log(`[DB] HuggingFace Token: ${hfToken ? 'configured' : 'not configured'}`);
+  
+  let dbLoaded = false;
+  
+  if (isHuggingFace && hfToken) {
+    const cloudDb = await downloadFromHub();
+    if (cloudDb) {
+      db = new SQL.Database(cloudDb);
+      dbLoaded = true;
+    }
+  }
+  
+  if (!dbLoaded && fs.existsSync(dbPath)) {
     const buffer = fs.readFileSync(dbPath);
     db = new SQL.Database(buffer);
-  } else {
+    console.log('[DB] Loaded local database');
+  } else if (!dbLoaded) {
     db = new SQL.Database();
+    console.log('[DB] Created new database');
   }
   
   db.run(`
@@ -160,16 +302,21 @@ export async function initDb(): Promise<SqlJsDatabase> {
     });
   }
 
-  saveDb();
+  await saveDb();
   
   return db;
 }
 
-export function saveDb() {
+export function saveDb(): void {
   const data = db.export();
   const buffer = Buffer.from(data);
-  const dbPath = path.join(__dirname, '../data/word-helper.db');
+  const dbPath = path.join(__dirname, '../data', dbFileName);
+  
   fs.writeFileSync(dbPath, buffer);
+  
+  if (isHuggingFace && hfToken) {
+    uploadToHub(buffer);
+  }
 }
 
 export function getDb(): SqlJsDatabase {
