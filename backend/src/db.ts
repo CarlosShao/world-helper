@@ -8,17 +8,45 @@ let db: SqlJsDatabase;
 let isHuggingFace: boolean = false;
 let hfToken: string | null = null;
 const dbFileName = 'word-helper.db';
+const hashFileName = 'db-hash.txt';
 let lastUploadTime = 0;
-const minUploadInterval = 60000; // 最小上传间隔 60 秒
+const minUploadInterval = 60000;
 let lastDbHash = '';
 
 const hubRepoId = process.env.HF_REPO_ID 
   || process.env.HF_SPACE_ID 
   || 'CarlosShao/word-helper';
 
+const dataDir = path.join(__dirname, '../data');
+const dbPath = path.join(dataDir, dbFileName);
+const hashPath = path.join(dataDir, hashFileName);
+
 function getDbHash(buffer: Buffer): string {
   const crypto = require('crypto');
   return crypto.createHash('md5').update(buffer).digest('hex');
+}
+
+function loadLastHash(): void {
+  try {
+    if (fs.existsSync(hashPath)) {
+      const content = fs.readFileSync(hashPath, 'utf-8').trim();
+      if (content) {
+        lastDbHash = content;
+        console.log('[DB] Loaded last DB hash from file');
+      }
+    }
+  } catch (error) {
+    console.log('[DB] Failed to load hash file:', error);
+  }
+}
+
+function saveLastHash(hash: string): void {
+  try {
+    fs.writeFileSync(hashPath, hash);
+    lastDbHash = hash;
+  } catch (error) {
+    console.log('[DB] Failed to save hash file:', error);
+  }
 }
 
 async function downloadFromHub(): Promise<Buffer | null> {
@@ -55,7 +83,8 @@ async function downloadFromHub(): Promise<Buffer | null> {
         res.on('end', () => {
           const buffer = Buffer.concat(chunks);
           console.log(`[DB] Downloaded database from Hub: ${buffer.length} bytes`);
-          lastDbHash = getDbHash(buffer);
+          const hash = getDbHash(buffer);
+          saveLastHash(hash);
           resolve(buffer);
         });
         res.on('error', reject);
@@ -85,14 +114,12 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
     return false;
   }
 
-  // 检查时间间隔
   const now = Date.now();
   if (now - lastUploadTime < minUploadInterval) {
     console.log('[DB] Skipping upload, too soon since last upload');
     return false;
   }
 
-  // 检查内容是否变化
   const currentHash = getDbHash(buffer);
   if (currentHash === lastDbHash) {
     console.log('[DB] Skipping upload, database content unchanged');
@@ -140,7 +167,7 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             console.log('[DB] Successfully uploaded to HuggingFace Hub');
             lastUploadTime = now;
-            lastDbHash = currentHash;
+            saveLastHash(currentHash);
             resolve(true);
           } else {
             console.log(`[DB] Upload failed: HTTP ${res.statusCode}`);
@@ -173,12 +200,11 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
 export async function initDb(): Promise<SqlJsDatabase> {
   const SQL = await initSqlJs();
   
-  const dbPath = path.join(__dirname, '../data', dbFileName);
-  const dataDir = path.join(__dirname, '../data');
-  
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
+  
+  loadLastHash();
   
   hfToken = process.env.HF_TOKEN || null;
   isHuggingFace = !!hfToken;
@@ -186,6 +212,7 @@ export async function initDb(): Promise<SqlJsDatabase> {
   console.log(`[DB] Environment: ${isHuggingFace ? 'HuggingFace' : 'Local'}`);
   console.log(`[DB] HuggingFace Token: ${hfToken ? 'configured' : 'not configured'}`);
   console.log(`[DB] Repository ID: ${hubRepoId}`);
+  console.log(`[DB] Last DB hash: ${lastDbHash || 'none'}`);
   
   let dbLoaded = false;
   
@@ -200,7 +227,9 @@ export async function initDb(): Promise<SqlJsDatabase> {
   if (!dbLoaded && fs.existsSync(dbPath)) {
     const buffer = fs.readFileSync(dbPath);
     db = new SQL.Database(buffer);
-    lastDbHash = getDbHash(buffer);
+    if (!lastDbHash) {
+      lastDbHash = getDbHash(buffer);
+    }
     console.log('[DB] Loaded local database');
   } else if (!dbLoaded) {
     db = new SQL.Database();
@@ -354,7 +383,6 @@ export async function initDb(): Promise<SqlJsDatabase> {
 export function saveDb(): void {
   const data = db.export();
   const buffer = Buffer.from(data);
-  const dbPath = path.join(__dirname, '../data', dbFileName);
   
   fs.writeFileSync(dbPath, buffer);
   
