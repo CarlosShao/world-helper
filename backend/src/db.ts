@@ -5,6 +5,8 @@ import fs from 'fs';
 let db: SqlJsDatabase;
 const dbFileName = 'word-helper.db';
 let lastDbHash = '';
+let saveTimeout: NodeJS.Timeout | null = null;
+const SAVE_DEBOUNCE_MS = 3000; // 3秒防抖
 
 const isPersistentStorage = fs.existsSync('/data');
 const dataDir = isPersistentStorage ? '/data' : path.join(__dirname, '../data');
@@ -180,8 +182,6 @@ export async function initDb(): Promise<SqlJsDatabase> {
           [rule.suffix, rule.description, rule.priority, 1]);
     });
   }
-
-  saveDb();
   
   console.log('[DB] Initialization complete');
   
@@ -189,12 +189,39 @@ export async function initDb(): Promise<SqlJsDatabase> {
 }
 
 export function saveDb(): void {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  
+  saveTimeout = setTimeout(() => {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    
+    const currentHash = getDbHash(buffer);
+    if (currentHash === lastDbHash) {
+      console.log('[DB] Skipping save - database unchanged');
+      return;
+    }
+    
+    fs.writeFileSync(dbPath, buffer);
+    lastDbHash = currentHash;
+    console.log('[DB] Database saved to storage');
+    
+    scheduleUpload();
+  }, SAVE_DEBOUNCE_MS);
+}
+
+export function saveDbImmediately(): void {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+  }
+  
   const data = db.export();
   const buffer = Buffer.from(data);
-  
   fs.writeFileSync(dbPath, buffer);
-  
-  scheduleUpload();
+  lastDbHash = getDbHash(buffer);
+  console.log('[DB] Database saved immediately');
 }
 
 export function getDb(): SqlJsDatabase {

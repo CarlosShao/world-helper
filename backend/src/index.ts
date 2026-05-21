@@ -3,7 +3,7 @@ import multer from 'multer';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { initDb, run, all, get, batchRun, saveDb } from './db';
+import { initDb, run, all, get, batchRun, saveDb, saveDbImmediately } from './db';
 import { parsePdf } from './pdfParser';
 
 const app = express();
@@ -93,7 +93,7 @@ async function startServer() {
             [word.english, word.part_of_speech, word.chinese]);
       }
       
-      saveDb();
+      saveDbImmediately();
 
       // 后台触发自动分类
       setTimeout(() => {
@@ -145,7 +145,7 @@ async function startServer() {
             run(`UPDATE words SET is_classified = 1 WHERE id IN (${placeholders})`, processedIds);
           }
           
-          saveDb();
+          saveDbImmediately();
         } catch (e) {
           console.error('Auto classification failed:', e);
         }
@@ -903,7 +903,7 @@ async function startServer() {
   // 手动保存数据库（现在使用 Persistent Storage，数据会自动持久化）
   app.post('/api/db/save', async (req, res) => {
     try {
-      saveDb();
+      saveDbImmediately();
       res.json({ success: true, message: '数据库已保存到 Persistent Storage' });
     } catch (error) {
       console.error('Save error:', error);
