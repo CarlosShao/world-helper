@@ -81,25 +81,20 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
     console.log('[DB] Uploading database to HuggingFace Hub...');
     
     // 使用正确的 API 路径
-    const url = new URL(`https://huggingface.co/api/spaces/${hubRepoId}/commit/main`);
+    const url = new URL(`https://huggingface.co/api/spaces/${hubRepoId}/upload/main/data`);
     
-    // 尝试不同的格式 - 版本 1
-    const payload = JSON.stringify({
-      summary: 'Update database',
-      description: 'Auto-saved database from word-helper app',
-      additions: [
-        {
-          path: `data/${dbFileName}`,
-          content: buffer.toString('base64')
-        }
-      ]
-    });
+    // 使用 multipart/form-data 格式上传
+    const boundary = '----WordHelperBoundary' + Date.now();
+    
+    const body = Buffer.concat([
+      Buffer.from(`--${boundary}\r\n`),
+      Buffer.from(`Content-Disposition: form-data; name="files"; filename="${dbFileName}"\r\n`),
+      Buffer.from('Content-Type: application/octet-stream\r\n\r\n'),
+      buffer,
+      Buffer.from(`\r\n--${boundary}--\r\n`)
+    ]);
 
-    console.log('[DB] Payload:', JSON.stringify({
-      summary: 'Update database',
-      description: 'Auto-saved database from word-helper app',
-      additions: [{ path: `data/${dbFileName}`, content: '...base64...' }]
-    }));
+    console.log('[DB] Using multipart/form-data format');
 
     return await new Promise((resolve) => {
       const options = {
@@ -108,8 +103,8 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${hfToken}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload),
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': body.length,
         }
       };
 
@@ -141,7 +136,7 @@ async function uploadToHub(buffer: Buffer): Promise<boolean> {
         resolve(false);
       });
 
-      req.write(payload);
+      req.write(body);
       req.end();
     });
   } catch (error) {
