@@ -8,7 +8,11 @@ let db: SqlJsDatabase;
 let isHuggingFace: boolean = false;
 let hfToken: string | null = null;
 const dbFileName = 'word-helper.db';
-const hubRepoId = process.env.HF_SPACE_ID || 'CarlosShao/word-helper';
+
+// 更灵活的仓库 ID 检测
+const hubRepoId = process.env.HF_REPO_ID 
+  || process.env.HF_SPACE_ID 
+  || 'CarlosShao/word-helper';
 
 async function downloadFromHub(): Promise<Buffer | null> {
   if (!hfToken) {
@@ -139,10 +143,13 @@ export async function initDb(): Promise<SqlJsDatabase> {
   }
   
   hfToken = process.env.HF_TOKEN || null;
-  isHuggingFace = !!process.env.HF_SPACE_ID;
+  
+  // 更可靠的检测：只要有 HF_TOKEN 就认为是 HuggingFace 环境
+  isHuggingFace = !!hfToken;
   
   console.log(`[DB] Environment: ${isHuggingFace ? 'HuggingFace' : 'Local'}`);
   console.log(`[DB] HuggingFace Token: ${hfToken ? 'configured' : 'not configured'}`);
+  console.log(`[DB] Repository ID: ${hubRepoId}`);
   
   let dbLoaded = false;
   
