@@ -1,215 +1,263 @@
-import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
-import path from 'path';
-import fs from 'fs';
+import { Pool } from 'pg';
+import dns from 'dns';
 
-let db: SqlJsDatabase;
-const dbFileName = 'word-helper.db';
+let pool: Pool;
+let dbHostIPv4: string | null = null;
 
-const dataDir = path.join(__dirname, '../data');
-const dbPath = path.join(dataDir, dbFileName);
-
-console.log(`[DB] Data directory: ${dataDir}`);
-
-export async function initDb(): Promise<SqlJsDatabase> {
-  const SQL = await initSqlJs();
-  
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+// 强制 IPv4 DNS 解析
+async function resolveIPv4(host: string): Promise<string> {
+  if (dbHostIPv4) {
+    console.log(`[DB] Using configured IPv4: ${dbHostIPv4}`);
+    return dbHostIPv4;
   }
-  
-  if (fs.existsSync(dbPath)) {
-    const buffer = fs.readFileSync(dbPath);
-    db = new SQL.Database(buffer);
-    console.log('[DB] Loaded existing database');
-  } else {
-    db = new SQL.Database();
-    console.log('[DB] Created new database');
-  }
-  
-  db.run(`
-    CREATE TABLE IF NOT EXISTS words (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      english TEXT NOT NULL,
-      part_of_speech TEXT,
-      chinese TEXT NOT NULL,
-      display_name TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      is_classified INTEGER DEFAULT 0
-    )
-  `);
-
-  db.run(`CREATE INDEX IF NOT EXISTS idx_words_english ON words(english)`);
-  db.run(`CREATE INDEX IF NOT EXISTS idx_words_chinese ON words(chinese)`);
-  
-  db.run(`
-    CREATE TABLE IF NOT EXISTS error_words (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      word_id INTEGER NOT NULL,
-      error_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (word_id) REFERENCES words(id)
-    )
-  `);
-  
-  db.run(`
-    CREATE TABLE IF NOT EXISTS observation_words (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      word_id INTEGER NOT NULL,
-      correct_count INTEGER DEFAULT 0,
-      added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (word_id) REFERENCES words(id)
-    )
-  `);
-  
-  db.run(`
-    CREATE TABLE IF NOT EXISTS import_files (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      filename TEXT NOT NULL,
-      imported_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-  
-  db.run(`
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    )
-  `);
-  
-  db.run(`
-    CREATE TABLE IF NOT EXISTS practice_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-      end_time DATETIME,
-      status TEXT DEFAULT 'active'
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS word_relations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      root_word_id INTEGER NOT NULL,
-      child_word_id INTEGER NOT NULL,
-      relation_type TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (root_word_id) REFERENCES words(id),
-      FOREIGN KEY (child_word_id) REFERENCES words(id)
-    )
-  `);
-
-  db.run(`CREATE INDEX IF NOT EXISTS idx_relations_root ON word_relations(root_word_id)`);
-  db.run(`CREATE INDEX IF NOT EXISTS idx_relations_child ON word_relations(child_word_id)`);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS classification_rules (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      suffix TEXT NOT NULL,
-      description TEXT,
-      priority INTEGER DEFAULT 0,
-      active INTEGER DEFAULT 1
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS import_error_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      import_file_id INTEGER NOT NULL,
-      index_number INTEGER NOT NULL,
-      english TEXT,
-      reason TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (import_file_id) REFERENCES import_files(id)
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS parts_of_speech (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      code TEXT NOT NULL UNIQUE,
-      name TEXT NOT NULL,
-      description TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  const existingRules = all('SELECT COUNT(*) as count FROM classification_rules');
-  if (existingRules[0]?.count === 0) {
-    const rules = [
-      { suffix: 'tion', description: '名词后缀', priority: 10 },
-      { suffix: 'ation', description: '名词后缀', priority: 10 },
-      { suffix: 'al', description: '形容词后缀', priority: 9 },
-      { suffix: 'ly', description: '副词后缀', priority: 8 },
-      { suffix: 'er', description: '名词后缀(人/物)', priority: 7 },
-      { suffix: 'or', description: '名词后缀(人/物)', priority: 7 },
-      { suffix: 'ing', description: '动名词/形容词', priority: 6 },
-      { suffix: 'ed', description: '过去式/分词', priority: 6 },
-      { suffix: 'ness', description: '名词后缀', priority: 5 },
-      { suffix: 'ment', description: '名词后缀', priority: 5 },
-      { suffix: 'able', description: '形容词后缀', priority: 4 },
-      { suffix: 'ible', description: '形容词后缀', priority: 4 },
-      { suffix: 'ful', description: '形容词后缀', priority: 3 },
-      { suffix: 'less', description: '形容词后缀', priority: 3 },
-      { suffix: 'ity', description: '名词后缀', priority: 2 },
-      { suffix: 'ize', description: '动词后缀', priority: 2 },
-      { suffix: 'ise', description: '动词后缀', priority: 2 },
-      { suffix: 'ous', description: '形容词后缀', priority: 1 },
-      { suffix: 'ive', description: '形容词后缀', priority: 1 },
-      { suffix: 'un', description: '否定前缀', priority: 0 },
-      { suffix: 're', description: '重复前缀', priority: 0 },
-      { suffix: 'pre', description: '前前缀', priority: 0 },
-      { suffix: 'dis', description: '否定前缀', priority: 0 },
-    ];
-    rules.forEach(rule => {
-      run('INSERT INTO classification_rules (suffix, description, priority, active) VALUES (?, ?, ?, ?)', 
-          [rule.suffix, rule.description, rule.priority, 1]);
+  return new Promise((resolve, reject) => {
+    dns.resolve4(host, (err, addresses) => {
+      if (err) {
+        console.error(`[DB] Failed to resolve IPv4 for ${host}:`, err);
+        reject(err);
+        return;
+      }
+      dbHostIPv4 = addresses[0];
+      console.log(`[DB] Resolved IPv4 for ${host}: ${dbHostIPv4}`);
+      resolve(dbHostIPv4);
     });
-  }
-  
-  console.log('[DB] Initialization complete');
-  
-  return db;
-}
-
-export function saveDb(): void {
-  const data = db.export();
-  const buffer = Buffer.from(data);
-  fs.writeFileSync(dbPath, buffer);
-  console.log('[DB] Database saved');
-}
-
-export function getDb(): SqlJsDatabase {
-  return db;
-}
-
-export function run(sql: string, params: any[] = []): void {
-  db.run(sql, params);
-}
-
-export function batchRun(operations: Array<{ sql: string; params?: any[] }>): void {
-  operations.forEach(op => {
-    db.run(op.sql, op.params || []);
   });
 }
 
-export function all(sql: string, params: any[] = []): any[] {
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  const results: any[] = [];
-  while (stmt.step()) {
-    const row = stmt.getAsObject();
-    results.push(row);
+export async function initDb(): Promise<void> {
+  // 使用环境变量或者默认的 Supabase 连接字符串
+  const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:!henji2168Carlos@db.gqtsxcypwgtczlugkqsb.supabase.co:5432/postgres';
+  
+  // 解析连接字符串，强制 IPv4
+  const url = new URL(databaseUrl);
+  const host = url.hostname;
+  
+  try {
+    const ipv4Host = await resolveIPv4(host);
+    url.hostname = ipv4Host;
+    const connectionString = url.toString();
+    
+    pool = new Pool({
+      connectionString,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+    
+    // 测试连接
+    const client = await pool.connect();
+    console.log('[DB] Database connected successfully');
+    client.release();
+    
+    // 初始化数据库表
+    await initTables();
+    
+  } catch (error) {
+    console.error('[DB] Failed to connect to database:', error);
+    throw error;
   }
-  stmt.free();
-  return results;
 }
 
-export function get(sql: string, params: any[] = []): any | null {
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  let result = null;
-  if (stmt.step()) {
-    result = stmt.getAsObject();
+async function initTables(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    // 创建表
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS words (
+        id SERIAL PRIMARY KEY,
+        english TEXT NOT NULL,
+        part_of_speech TEXT,
+        chinese TEXT NOT NULL,
+        display_name TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_classified INTEGER DEFAULT 0
+      )
+    `);
+    
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_words_english ON words(english)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_words_chinese ON words(chinese)`);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS error_words (
+        id SERIAL PRIMARY KEY,
+        word_id INTEGER NOT NULL REFERENCES words(id),
+        error_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS observation_words (
+        id SERIAL PRIMARY KEY,
+        word_id INTEGER NOT NULL REFERENCES words(id),
+        correct_count INTEGER DEFAULT 0,
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS import_files (
+        id SERIAL PRIMARY KEY,
+        filename TEXT NOT NULL,
+        imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    `);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS practice_sessions (
+        id SERIAL PRIMARY KEY,
+        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        end_time TIMESTAMP,
+        status TEXT DEFAULT 'active'
+      )
+    `);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS word_relations (
+        id SERIAL PRIMARY KEY,
+        root_word_id INTEGER NOT NULL REFERENCES words(id),
+        child_word_id INTEGER NOT NULL REFERENCES words(id),
+        relation_type TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_relations_root ON word_relations(root_word_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_relations_child ON word_relations(child_word_id)`);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS classification_rules (
+        id SERIAL PRIMARY KEY,
+        suffix TEXT NOT NULL,
+        description TEXT,
+        priority INTEGER DEFAULT 0,
+        active INTEGER DEFAULT 1
+      )
+    `);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS import_error_logs (
+        id SERIAL PRIMARY KEY,
+        import_file_id INTEGER NOT NULL REFERENCES import_files(id),
+        index_number INTEGER NOT NULL,
+        english TEXT,
+        reason TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS parts_of_speech (
+        id SERIAL PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // 检查并插入默认分类规则
+    const rulesCheck = await client.query('SELECT COUNT(*) as count FROM classification_rules');
+    if (parseInt(rulesCheck.rows[0].count) === 0) {
+      const rules = [
+        { suffix: 'tion', description: '名词后缀', priority: 10 },
+        { suffix: 'ation', description: '名词后缀', priority: 10 },
+        { suffix: 'al', description: '形容词后缀', priority: 9 },
+        { suffix: 'ly', description: '副词后缀', priority: 8 },
+        { suffix: 'er', description: '名词后缀(人/物)', priority: 7 },
+        { suffix: 'or', description: '名词后缀(人/物)', priority: 7 },
+        { suffix: 'ing', description: '动名词/形容词', priority: 6 },
+        { suffix: 'ed', description: '过去式/分词', priority: 6 },
+        { suffix: 'ness', description: '名词后缀', priority: 5 },
+        { suffix: 'ment', description: '名词后缀', priority: 5 },
+        { suffix: 'able', description: '形容词后缀', priority: 4 },
+        { suffix: 'ible', description: '形容词后缀', priority: 4 },
+        { suffix: 'ful', description: '形容词后缀', priority: 3 },
+        { suffix: 'less', description: '形容词后缀', priority: 3 },
+        { suffix: 'ity', description: '名词后缀', priority: 2 },
+        { suffix: 'ize', description: '动词后缀', priority: 2 },
+        { suffix: 'ise', description: '动词后缀', priority: 2 },
+        { suffix: 'ous', description: '形容词后缀', priority: 1 },
+        { suffix: 'ive', description: '形容词后缀', priority: 1 },
+        { suffix: 'un', description: '否定前缀', priority: 0 },
+        { suffix: 're', description: '重复前缀', priority: 0 },
+        { suffix: 'pre', description: '前前缀', priority: 0 },
+        { suffix: 'dis', description: '否定前缀', priority: 0 },
+      ];
+      
+      for (const rule of rules) {
+        await client.query(
+          'INSERT INTO classification_rules (suffix, description, priority, active) VALUES ($1, $2, $3, $4)',
+          [rule.suffix, rule.description, rule.priority, 1]
+        );
+      }
+    }
+    
+    console.log('[DB] Database initialized successfully');
+  } finally {
+    client.release();
   }
-  stmt.free();
-  return result;
+}
+
+export async function run(sql: string, params: any[] = []): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(sql, params);
+  } finally {
+    client.release();
+  }
+}
+
+export async function batchRun(operations: Array<{ sql: string; params?: any[] }>): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const op of operations) {
+      await client.query(op.sql, op.params || []);
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function all(sql: string, params: any[] = []): Promise<any[]> {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(sql, params);
+    return result.rows;
+  } finally {
+    client.release();
+  }
+}
+
+export async function get(sql: string, params: any[] = []): Promise<any | null> {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(sql, params);
+    return result.rows[0] || null;
+  } finally {
+    client.release();
+  }
+}
+
+export function getPool(): Pool {
+  return pool;
+}
+
+export async function closeDb(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    console.log('[DB] Database connection closed');
+  }
 }
