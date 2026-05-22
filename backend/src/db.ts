@@ -4,28 +4,11 @@ import fs from 'fs';
 
 let db: SqlJsDatabase;
 const dbFileName = 'word-helper.db';
-let lastDbHash = '';
-let saveTimeout: NodeJS.Timeout | null = null;
-const SAVE_DEBOUNCE_MS = 3000; // 3秒防抖
 
-const isPersistentStorage = fs.existsSync('/data');
-const dataDir = isPersistentStorage ? '/data' : path.join(__dirname, '../data');
+const dataDir = path.join(__dirname, '../data');
 const dbPath = path.join(dataDir, dbFileName);
 
-console.log(`[DB] Storage mode: ${isPersistentStorage ? 'Persistent Storage (/data)' : 'Local filesystem'}`);
-
-function getDbHash(buffer: Buffer): string {
-  const crypto = require('crypto');
-  return crypto.createHash('md5').update(buffer).digest('hex');
-}
-
-async function downloadFromHub(): Promise<Buffer | null> {
-  return null;
-}
-
-export function scheduleUpload(): void {
-  // 禁用上传到 Hub，不再需要
-}
+console.log(`[DB] Data directory: ${dataDir}`);
 
 export async function initDb(): Promise<SqlJsDatabase> {
   const SQL = await initSqlJs();
@@ -37,8 +20,7 @@ export async function initDb(): Promise<SqlJsDatabase> {
   if (fs.existsSync(dbPath)) {
     const buffer = fs.readFileSync(dbPath);
     db = new SQL.Database(buffer);
-    lastDbHash = getDbHash(buffer);
-    console.log('[DB] Loaded existing database from storage');
+    console.log('[DB] Loaded existing database');
   } else {
     db = new SQL.Database();
     console.log('[DB] Created new database');
@@ -189,39 +171,10 @@ export async function initDb(): Promise<SqlJsDatabase> {
 }
 
 export function saveDb(): void {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
-  }
-  
-  saveTimeout = setTimeout(() => {
-    const data = db.export();
-    const buffer = Buffer.from(data);
-    
-    const currentHash = getDbHash(buffer);
-    if (currentHash === lastDbHash) {
-      console.log('[DB] Skipping save - database unchanged');
-      return;
-    }
-    
-    fs.writeFileSync(dbPath, buffer);
-    lastDbHash = currentHash;
-    console.log('[DB] Database saved to storage');
-    
-    scheduleUpload();
-  }, SAVE_DEBOUNCE_MS);
-}
-
-export function saveDbImmediately(): void {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
-    saveTimeout = null;
-  }
-  
   const data = db.export();
   const buffer = Buffer.from(data);
   fs.writeFileSync(dbPath, buffer);
-  lastDbHash = getDbHash(buffer);
-  console.log('[DB] Database saved immediately');
+  console.log('[DB] Database saved');
 }
 
 export function getDb(): SqlJsDatabase {
@@ -236,7 +189,6 @@ export function batchRun(operations: Array<{ sql: string; params?: any[] }>): vo
   operations.forEach(op => {
     db.run(op.sql, op.params || []);
   });
-  saveDb();
 }
 
 export function all(sql: string, params: any[] = []): any[] {
