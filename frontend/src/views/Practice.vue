@@ -1,7 +1,7 @@
 <template>
   <div class="practice">
-    <!-- 开始页面 - 只有在没有fromIndex且没有currentWord时显示 -->
-    <el-card v-if="!currentWord && !hasFromIndex" class="start-card">
+    <!-- 开始页面 - 只有在没有开始练习且没有fromIndex时显示 -->
+    <el-card v-if="!showPracticePage" class="start-card">
       <div class="start-content">
         <div class="icon-wrapper">
           <el-icon class="practice-icon"><EditPen /></el-icon>
@@ -25,8 +25,8 @@
       </div>
     </el-card>
 
-    <!-- 练习页面 - 当有currentWord或者有fromIndex时显示 -->
-    <el-card v-if="currentWord || hasFromIndex" class="practice-card">
+    <!-- 练习页面 - 当已经开始练习或有fromIndex时显示 -->
+    <el-card v-if="showPracticePage" class="practice-card">
       <!-- 加载状态 -->
       <div v-if="loading" class="loading-container">
         <el-icon class="loading-icon is-loading" :size="40"><Loading /></el-icon>
@@ -155,6 +155,7 @@ const checking = ref(false)
 const inputRef = ref()
 const sessionId = ref<number | null>(null)
 const loading = ref(false)
+const hasStarted = ref(false) // 新增标志：是否已经开始练习
 
 // 从首页过来的参数
 const fromIndex = ref<number | null>(null)
@@ -168,6 +169,9 @@ const skipCount = ref(0)
 
 // 判断是否有fromIndex参数
 const hasFromIndex = computed(() => route.query.fromIndex !== undefined)
+
+// 判断是否显示练习页面
+const showPracticePage = computed(() => hasStarted.value || hasFromIndex.value)
 
 // 判断上一个按钮是否禁用：从表格进入时，只能回到起始词
 const isGoBackDisabled = computed(() => {
@@ -337,6 +341,7 @@ const clearProgress = async () => {
 
 const startPractice = async () => {
   loading.value = true
+  hasStarted.value = true // 设置为已开始
   try {
     const res = await wordApi.startPractice()
     sessionId.value = res.data.sessionId
@@ -374,7 +379,7 @@ const startPractice = async () => {
       fromPage.value = parseInt(queryFromPage as string)
     }
     
-    practiceTotal.value = savedTotal.value > 0 ? savedTotal.value : (totalWords.value - fromIndex.value)
+    practiceTotal.value = savedTotal.value > 0 ? savedTotal.value : (words.value.length - fromIndex.value)
     correctCount.value = savedCorrectCount.value
     skipCount.value = savedSkipCount.value
   } else {
@@ -384,7 +389,7 @@ const startPractice = async () => {
     } else {
       currentIndex.value = savedIndex.value
     }
-    practiceTotal.value = savedTotal.value > 0 ? savedTotal.value : totalWords.value
+    practiceTotal.value = savedTotal.value > 0 ? savedTotal.value : words.value.length
     correctCount.value = savedCorrectCount.value
     skipCount.value = savedSkipCount.value
     
@@ -503,8 +508,10 @@ const goHome = () => {
 }
 
 onMounted(() => {
-  // 直接调用startPractice，会根据是否有fromIndex来决定行为
-  startPractice()
+  // 如果有fromIndex，说明是从单词列表跳转来的，直接开始
+  if (hasFromIndex.value) {
+    startPractice()
+  }
 })
 
 onBeforeUnmount(async () => {
